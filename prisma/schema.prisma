@@ -1,0 +1,201 @@
+// This is your Prisma schema file.
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// User roles in the system
+enum Role {
+  RECEPTIONIST
+  DOCTOR
+  LABORATORIST
+  ADMIN
+}
+
+/// Status of an appointment
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  MISSED
+}
+
+/// Stage of patient visit
+enum VisitStatus {
+  REGISTERED
+  VITALS_TAKEN
+  ASSIGNED_TO_DOCTOR
+  EXAMINED
+  LAB_ORDERED
+  PAID_FOR_LAB
+  ASSIGNED_TO_LAB
+  LAB_COMPLETED
+  FINALIZED
+}
+
+/// Type of service: vital check or lab test
+enum ServiceType {
+  VITAL
+  LAB_TEST
+}
+
+/// Status of a lab order
+enum LabOrderStatus {
+  ORDERED
+  PAID
+  ASSIGNED
+  COMPLETED
+}
+
+/// Types of notifications
+enum NotificationType {
+  ASSIGNMENT
+  REMINDER
+  UPDATE
+}
+
+/// Users: doctors, receptionists, laboratorists, admin
+model User {
+  id               String           @id @default(cuid())
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  name             String
+  email            String           @unique
+  emailVerified    DateTime?
+  password         String
+  role             Role
+  notifications    Json?            // [{ id, type, message, read, createdAt }]
+  appointments     Appointment[]    @relation("DoctorAppointments")
+  labOrders        LabOrder[]       @relation("OrderedByUser")
+  assignedLabOrders LabOrder[]      @relation("AssignedToLaboratorist")
+  accounts         Account[]
+  sessions         Session[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+/// Patients with medical history and contact info
+model Patient {
+  id              Int               @id @default(autoincrement())
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  name            String
+  dob             DateTime?
+  gender          String?
+  phone           String?
+  email           String?           @unique
+  address         String?
+  history         Json?             // [{ appointmentId, visitDetails, completedAt }]
+  notifications   Json?             // [{ id, type, message, read, createdAt }]
+  appointments    Appointment[]
+
+  @@index([name])
+  @@index([email])
+}
+
+/// Services offered: e.g., "Blood Pressure", "CBC Test"
+model Service {
+  id              Int               @id @default(autoincrement())
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  name            String
+  description     String?
+  type            ServiceType
+  labOrders       LabOrder[]
+
+  @@index([type])
+}
+
+/// Appointments track patient visits and clinical flow
+model Appointment {
+  id              Int               @id @default(autoincrement())
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  patientId       Int
+  doctorId        String?
+  dateTime        DateTime
+  status          AppointmentStatus @default(SCHEDULED)
+  reminderSent    Boolean           @default(false)
+  visitStatus     VisitStatus       @default(REGISTERED)
+  vitals          Json?             // { weight, bpSystolic, bpDiastolic, measuredById, measuredAt }
+  examination     Json?             // { doctorId, complaints, diagnosis, examinedAt }
+  prescription    Json?             // { doctorId, medicines, recommendations, nextAppointment, createdAt }
+  attachments     Json?             // [{ id, fileUrl, fileName, uploadedById, uploadedAt }]
+
+  patient         Patient           @relation(fields: [patientId], references: [id])
+  doctor          User?             @relation("DoctorAppointments", fields: [doctorId], references: [id])
+  labOrders       LabOrder[]
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([dateTime])
+  @@index([status])
+  @@index([visitStatus])
+}
+
+/// Lab orders are now proper relational models (not JSON)
+model LabOrder {
+  id                Int               @id @default(autoincrement())
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  appointmentId     Int
+  serviceId         Int
+  orderedById       String
+  laboratoristId    String?
+  status            LabOrderStatus    @default(ORDERED)
+  result            String?
+  paidAt            DateTime?
+  completedAt       DateTime?
+
+  appointment       Appointment       @relation(fields: [appointmentId], references: [id])
+  service           Service           @relation(fields: [serviceId], references: [id])
+  orderedBy         User              @relation("OrderedByUser", fields: [orderedById], references: [id])
+  laboratorist      User?             @relation("AssignedToLaboratorist", fields: [laboratoristId], references: [id])
+
+  @@index([status])
+  @@index([laboratoristId])
+  @@index([appointmentId])
+  @@index([serviceId])
+}
