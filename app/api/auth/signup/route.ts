@@ -5,13 +5,32 @@ import { Role } from "@prisma/client";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // Validate that the request body is valid JSON
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      return NextResponse.json(
+        { error: "Invalid JSON format" },
+        { status: 400 }
+      );
+    }
+
     const { name, email, password, role } = body;
 
-    // Validate input
+    // Validate required fields
     if (!name || !email || !password) {
       return NextResponse.json(
         { error: "Name, email, and password are required" },
+        { status: 400 }
+      );
+    }
+
+    // Validate email format (basic)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: "Invalid email format" },
         { status: 400 }
       );
     }
@@ -37,18 +56,15 @@ export async function POST(request: NextRequest) {
         name,
         email,
         password: hashedPassword,
-        role: role || Role.RECEPTIONIST,
+        role: (role && Object.values(Role).includes(role)) ? role : Role.RECEPTIONIST,
       },
     });
 
-    // Return user without password
+    // Strip password from response
     const { password: _, ...userWithoutPassword } = user;
 
     return NextResponse.json(
-      { 
-        message: "User created successfully", 
-        user: userWithoutPassword 
-      },
+      { message: "User created successfully", user: userWithoutPassword },
       { status: 201 }
     );
   } catch (error) {

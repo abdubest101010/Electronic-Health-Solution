@@ -121,18 +121,16 @@ model Patient {
   id              Int               @id @default(autoincrement())
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
-  name            String
+  name            String            @unique
   dob             DateTime?
   gender          String?
   phone           String?
-  email           String?           @unique
   address         String?
   history         Json?             // [{ appointmentId, visitDetails, completedAt }]
   notifications   Json?             // [{ id, type, message, read, createdAt }]
   appointments    Appointment[]
 
   @@index([name])
-  @@index([email])
 }
 
 /// Services offered: e.g., "Blood Pressure", "CBC Test"
@@ -155,7 +153,7 @@ model Appointment {
   updatedAt       DateTime          @updatedAt
   patientId       Int
   doctorId        String?
-  dateTime        DateTime
+  dateTime        DateTime?
   status          AppointmentStatus @default(SCHEDULED)
   reminderSent    Boolean           @default(false)
   visitStatus     VisitStatus       @default(REGISTERED)
