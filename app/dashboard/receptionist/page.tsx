@@ -6,6 +6,7 @@ import TodayAppointments from '@/components/TodayAppointments';
 import PatientDetailsModal from '@/components/PatientDetailsModal';
 import TodayRegistrations from '@/components/TodayRegistrations';
 import RegistrationForms from '@/components/RegistrationForms';
+import PendingLabOrders from '@/components/PendindLabOrders';
 import { useState } from 'react';
 
 export default function ReceptionistDashboard() {
@@ -34,6 +35,7 @@ export default function ReceptionistDashboard() {
           <TodayAppointments onPatientClick={handlePatientClick} />
           <PatientDetailsModal patient={selectedPatient} onClose={() => setSelectedPatient(null)} />
           <TodayRegistrations />
+          <PendingLabOrders />
         </div>
 
         <RegistrationForms />

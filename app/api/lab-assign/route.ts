@@ -10,10 +10,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { labOrderIds, laboratoristId } = await req.json();
+  const { appointmentId, serviceIds, laboratoristId } = await req.json();
 
-  if (!labOrderIds || !Array.isArray(labOrderIds) || labOrderIds.length === 0) {
-    return NextResponse.json({ error: 'At least one lab order ID is required' }, { status: 400 });
+  // ✅ Validate inputs
+  if (!appointmentId) {
+    return NextResponse.json({ error: 'Appointment ID is required' }, { status: 400 });
+  }
+
+  if (!Array.isArray(serviceIds) || serviceIds.length === 0) {
+    return NextResponse.json({ error: 'At least one lab service ID is required' }, { status: 400 });
   }
 
   if (!laboratoristId) {
@@ -21,7 +26,16 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Verify laboratorist exists and is a LABORATORIST
+    // Verify appointment exists and belongs to doctor
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+    });
+
+    if (!appointment || appointment.doctorId !== session.user.id) {
+      return NextResponse.json({ error: 'Appointment not found or unauthorized' }, { status: 404 });
+    }
+
+    // Verify laboratorist
     const laboratorist = await prisma.user.findUnique({
       where: { id: laboratoristId },
     });
@@ -30,28 +44,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or unauthorized laboratorist' }, { status: 400 });
     }
 
-    // Get lab orders and verify they are ORDERED and belong to doctor's patients
-    const labOrders = await prisma.labOrder.findMany({
-      where: {
-        id: { in: labOrderIds },
-        status: 'ORDERED',
-        appointment: {
-          doctorId: session.user.id,
-        },
-      },
-      include: { appointment: true },
-    });
-
-    if (labOrders.length === 0) {
-      return NextResponse.json({ error: 'No valid lab orders found' }, { status: 404 });
-    }
-
-    // Assign all valid lab orders
+    // ✅ Create new lab orders
     await prisma.$transaction(
-      labOrders.map((order) =>
-        prisma.labOrder.update({
-          where: { id: order.id },
+      serviceIds.map((serviceId: number) =>
+        prisma.labOrder.create({
           data: {
+            appointmentId,
+            serviceId,
+            orderedById: session.user.id,
             laboratoristId,
             status: LabOrderStatus.ASSIGNED,
           },
@@ -59,20 +59,15 @@ export async function POST(req: NextRequest) {
       )
     );
 
-    // Update appointments to reflect new visit status
-    const appointmentIds = [...new Set(labOrders.map((o) => o.appointmentId))];
-    await prisma.$transaction(
-      appointmentIds.map((id) =>
-        prisma.appointment.update({
-          where: { id },
-          data: { visitStatus: 'ASSIGNED_TO_LAB' },
-        })
-      )
-    );
+    // Update appointment status
+    await prisma.appointment.update({
+      where: { id: appointmentId },
+      data: { visitStatus: 'ASSIGNED_TO_LAB' },
+    });
 
     return NextResponse.json({
       success: true,
-      message: `Assigned ${labOrders.length} lab test(s) to ${laboratorist.name}`,
+      message: `Assigned ${serviceIds.length} lab test(s) to ${laboratorist.name}`,
     });
   } catch (error) {
     console.error('Lab assignment error:', error);

@@ -44,36 +44,41 @@ export default function LabAssign({ selectedAppointment, services }: Props) {
     fetchLaboratorists();
   }, []);
 
-  const handleAssign = async () => {
-    if (!selectedAppointment || !laboratoristId || serviceIds.length === 0) {
-      alert('Please select all fields.');
-      return;
-    }
+   const assignToLab = async () => {
+    if (!selectedAppointment) return alert('No patient selected.');
+    if (!laboratoristId) return alert('Choose a laboratorist.');
+    if (serviceIds.length === 0) return alert('Select at least one test.');
 
     try {
+      const body = {
+        appointmentId: selectedAppointment.id,
+        serviceIds,
+        laboratoristId,
+      };
+
+      console.log('Sending to API:', body); // 🐞 Debug: Check what's sent
+
       const res = await fetch('/api/lab-assign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          appointmentId: selectedAppointment.id,
-          serviceIds,
-          laboratoristId,
-        }),
+         body: JSON.stringify(body),
       });
+
+      const responseData = await res.json();
+      console.log('API Response:', responseData); // 🐞 Debug: See full response
 
       if (res.ok) {
         alert('Lab tests assigned!');
         setServiceIds([]);
         setLaboratoristId('');
       } else {
-        const error = await res.json();
-        alert(`Error: ${error.message}`);
+        alert(`Error: ${responseData.error}`);
       }
     } catch (err) {
-      alert('Network error');
+      console.error('Network error:', err);
+      alert('Failed to connect to server.');
     }
-  };
-
+}
   if (!selectedAppointment) return null;
   if (loading) return <p>Loading laboratorists...</p>;
   if (error) return <p className="text-red-500">Error: {error}</p>;
@@ -118,7 +123,7 @@ export default function LabAssign({ selectedAppointment, services }: Props) {
       </div>
 
       <button
-        onClick={handleAssign}
+        onClick={assignToLab}
         disabled={!laboratoristId || serviceIds.length === 0}
         className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
       >
@@ -127,3 +132,4 @@ export default function LabAssign({ selectedAppointment, services }: Props) {
     </div>
   );
 }
+
