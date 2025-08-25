@@ -1,40 +1,34 @@
-// app/api/todays-appointments/route.ts
+// app/api/doctors/my-patients/route.ts
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 
 export async function GET() {
   const session = await auth();
-  if (!session || session.user.role !== 'RECEPTIONIST') {
+
+  if (!session || session.user.role !== 'DOCTOR') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date();
-  todayEnd.setHours(23, 59, 59, 999);
 
   try {
     const appointments = await prisma.appointment.findMany({
       where: {
-        dateTime: {
-          gte: todayStart,
-          lte: todayEnd,
-        },
-        status: {
-          in: ['SCHEDULED', 'COMPLETED'],
+        doctorId: session.user.id,
+        visitStatus: {
+          in: ['ASSIGNED_TO_DOCTOR', 'EXAMINED', 'LAB_ORDERED', 'LAB_COMPLETED'],
         },
       },
       include: {
         patient: true,
-        labOrders: true,
       },
-      orderBy: { dateTime: 'asc' },
+      orderBy: {
+        updatedAt: 'desc',
+      },
     });
 
     return NextResponse.json(appointments);
   } catch (error) {
-    console.error('Error fetching today’s appointments:', error);
+    console.error('Error fetching doctor patients:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

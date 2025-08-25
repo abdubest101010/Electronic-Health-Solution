@@ -1,28 +1,37 @@
 // app/api/appointments/examine/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { auth } from '@/auth'; // use the new helper from your auth.ts
+import { auth } from '@/auth';
 import { VisitStatus } from '@prisma/client';
 
-
 export async function POST(req: NextRequest) {
-  const session = await auth(); // instead of getServerSession(authOptions)
+  const session = await auth();
   if (!session || session.user.role !== 'DOCTOR') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { appointmentId, complaints, diagnosis, visitDetails, labServiceIds } = await req.json();
+  const { appointmentId, complaints, diagnosis, visitDetails } = await req.json();
+
+  if (!appointmentId) {
+    return NextResponse.json({ error: 'Appointment ID is required' }, { status: 400 });
+  }
 
   try {
     const appointment = await prisma.appointment.findUnique({
       where: { id: appointmentId },
       include: { patient: true },
     });
+
     if (!appointment) {
       return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
     }
 
-    // Update examination
+    // Ensure doctor owns this appointment
+    if (appointment.doctorId !== session.user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Save examination
     await prisma.appointment.update({
       where: { id: appointmentId },
       data: {
@@ -38,43 +47,30 @@ export async function POST(req: NextRequest) {
 
     // Append to patient history
     const currentHistory: any[] = Array.isArray(appointment.patient.history)
-      ? (appointment.patient.history as any[])
+      ? appointment.patient.history
       : [];
-    const updatedHistory = [
-      ...currentHistory,
-      { appointmentId, visitDetails, completedAt: new Date() },
-    ];
+
     await prisma.patient.update({
       where: { id: appointment.patientId },
       data: {
-        history: updatedHistory,
+        history: {
+          push: {
+            appointmentId,
+            visitDetails,
+            diagnosis,
+            examinedAt: new Date(),
+          },
+        },
       },
     });
 
-    // If labs needed
-    let visitStatus: VisitStatus = VisitStatus.EXAMINED;
-    if (labServiceIds && labServiceIds.length > 0) {
-      await prisma.$transaction(async (tx) => {
-        for (const serviceId of labServiceIds) {
-          await tx.labOrder.create({
-            data: {
-              appointmentId,
-              serviceId,
-              orderedById: session.user.id,
-              status: 'ORDERED',
-            },
-          });
-        }
-      });
-      visitStatus = VisitStatus.LAB_ORDERED;
-      await prisma.appointment.update({
-        where: { id: appointmentId },
-        data: { visitStatus },
-      });
-    }
-
-    return NextResponse.json({ ...appointment, visitStatus });
+    return NextResponse.json({
+      success: true,
+      message: 'Examination recorded successfully',
+      visitStatus: 'EXAMINED',
+    });
   } catch (error) {
+    console.error('Examination error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

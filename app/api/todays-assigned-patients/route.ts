@@ -1,40 +1,57 @@
 // app/api/todays-assigned-patients/route.ts
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth'; // Assuming you're using NextAuth
+import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 
 export const GET = async () => {
-  // Authenticate user
   const session = await auth();
-  if (!session || !['DOCTOR'].includes(session.user.role)) {
+  if (!session || session.user.role !== 'DOCTOR') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-
-  const todayEnd = new Date();
-  todayEnd.setHours(23, 59, 59, 999);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
 
   try {
-    const assignedPatients = await prisma.appointment.findMany({
+    const appointments = await prisma.appointment.findMany({
       where: {
         visitStatus: 'ASSIGNED_TO_DOCTOR',
+        doctorId: session.user.id, // ✅ Only patients assigned to this doctor
         createdAt: {
-          gte: todayStart,
-          lte: todayEnd,
+          gte: today,
+          lt: tomorrow, // Use `lt` instead of `lte` for clarity
         },
       },
       include: {
-        patient: true,
-        doctor: true,
+        patient: {
+          select: {
+            name: true,
+          },
+        },
       },
-      orderBy: {
-        createdAt: 'asc',
-      },
+      orderBy: { createdAt: 'asc' },
     });
 
-    return NextResponse.json(assignedPatients);
+    const result = appointments.map((apt) => {
+      const vitals = apt.vitals as { weight?: number; bpSystolic?: number; bpDiastolic?: number } | null;
+
+      return {
+        id: apt.id,
+        patient: {
+          name: apt.patient.name,
+        },
+        vitals: {
+          weight: vitals?.weight ?? null,
+          bpSystolic: vitals?.bpSystolic ?? null,
+          bpDiastolic: vitals?.bpDiastolic ?? null,
+        },
+        visitStatus: apt.visitStatus,
+      };
+    });
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching assigned patients:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

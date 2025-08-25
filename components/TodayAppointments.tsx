@@ -2,8 +2,11 @@
 import { useEffect, useState } from 'react';
 
 interface Appointment {
-  id: string;
-  patient: { name: string };
+  id: number;
+  patient: {
+    id: number;
+    name: string;
+  };
   visitStatus: string;
 }
 
@@ -18,7 +21,10 @@ export default function TodayAppointments({ onPatientClick }: Props) {
     const fetchAppointments = async () => {
       try {
         const res = await fetch('/api/todays-appointments');
-        if (res.ok) setAppointments(await res.json());
+        if (res.ok) {
+          const data = await res.json();
+          setAppointments(data);
+        }
       } catch (err) {
         console.error('Failed to load appointments');
       }
@@ -36,7 +42,7 @@ export default function TodayAppointments({ onPatientClick }: Props) {
           {appointments.map((app) => (
             <li
               key={app.id}
-              onClick={() => onPatientClick(parseInt(app.id))}
+              onClick={() => onPatientClick(app.patient.id)}
               className="cursor-pointer p-3 border rounded hover:bg-gray-50"
             >
               <strong>{app.patient.name}</strong>{' '}

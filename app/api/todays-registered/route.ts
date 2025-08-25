@@ -16,6 +16,7 @@ export async function GET() {
   todayEnd.setHours(23, 59, 59, 999);
 
   try {
+    // Fetch patients with today's appointments in relevant visitStatus
     const patients = await prisma.patient.findMany({
       where: {
         createdAt: {
@@ -25,7 +26,7 @@ export async function GET() {
         appointments: {
           some: {
             visitStatus: {
-              in: ['REGISTERED', 'VITALS_TAKEN', 'LAB_ORDERED'],
+              in: ['REGISTERED', 'VITALS_TAKEN', 'LAB_ORDERED', 'PAID_FOR_LAB'],
             },
           },
         },
@@ -52,7 +53,20 @@ export async function GET() {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json(patients);
+    // Flatten: Create a list of objects with Appointment.id as the main ID
+    const result = patients.flatMap((patient) =>
+      patient.appointments.map((app) => ({
+        id: app.id,                    // ✅ Appointment ID (what you need!)
+        name: patient.name,
+        patientId: patient.id,
+        visitStatus: app.visitStatus,
+        labOrderCount: app.labOrders.length,
+        hasPendingLab: app.labOrders.some((lo) => lo.status !== 'COMPLETED'),
+        createdAt: patient.createdAt,
+      }))
+    );
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching today registered patients:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
