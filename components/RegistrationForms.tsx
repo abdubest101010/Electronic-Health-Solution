@@ -20,12 +20,11 @@ export default function RegistrationForms() {
             <h3 className="text-lg font-medium mb-3">Register New Patient</h3>
             <RegisterPatientForm />
           </div>
-          <div className="p-4 border rounded bg-white shadow">
-            <h3 className="text-lg font-medium mb-3">Assign Doctor</h3>
-            <AssignDoctorForm />
-          </div>
+        
         </div>
       )}
+    <AssignDoctorForm />
+
     </div>
   );
 }

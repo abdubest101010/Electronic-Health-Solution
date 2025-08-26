@@ -19,6 +19,7 @@ type LabPatient = {
 export default function ReceptionistDashboard() {
   const [patients, setPatients] = useState<LabPatient[]>([]);
   const [loading, setLoading] = useState(true);
+  const [buttonLoading, setButtonLoading] = useState<number | null>(null); // track clicked button
 
   useEffect(() => {
     const fetchPatients = async () => {
@@ -39,6 +40,7 @@ export default function ReceptionistDashboard() {
   }, []);
 
   const markAsPaid = async (labOrderId: number) => {
+    setButtonLoading(labOrderId);
     try {
       const res = await fetch('/api/mark-us-paid', {
         method: 'POST',
@@ -65,6 +67,8 @@ export default function ReceptionistDashboard() {
       }
     } catch (err) {
       alert('Network error');
+    } finally {
+      setButtonLoading(null);
     }
   };
 
@@ -79,7 +83,7 @@ export default function ReceptionistDashboard() {
   return (
     <ProtectedLayout allowedRoles={['RECEPTIONIST']}>
       <div className="p-6 max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold mb-6">Today's Lab Patients</h1>
+        <h1 className="text-2xl font-bold mb-6">Today's Ordered Lab Patients</h1>
 
         {patients.length === 0 ? (
           <p className="text-gray-500">No patients assigned to lab today.</p>
@@ -109,9 +113,14 @@ export default function ReceptionistDashboard() {
                         ) : (
                           <button
                             onClick={() => markAsPaid(test.labOrderId)}
-                            className="text-sm bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+                            disabled={buttonLoading === test.labOrderId}
+                            className={`text-sm px-3 py-1 rounded text-white transition ${
+                              buttonLoading === test.labOrderId
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : 'bg-green-600 hover:bg-green-700'
+                            }`}
                           >
-                            Mark as Paid
+                            {buttonLoading === test.labOrderId ? 'Saving...' : 'Mark as Paid'}
                           </button>
                         )}
                       </li>

@@ -8,6 +8,9 @@ import LabAssign from '@/components/LabAssign';
 import PatientList from '@/components/PatientList';
 import ExaminationSection from '@/components/ExaminationSection';
 import { AssignedPatient, LabService } from '@/types/appointment';
+import LabResults from '@/components/LabResult';
+import MedicalHistory from '@/components/MedicalHistory';
+import { signOut, useSession } from 'next-auth/react';
 
 export default function DoctorDashboard() {
   const [appointments, setAppointments] = useState<AssignedPatient[]>([]);
@@ -20,7 +23,7 @@ export default function DoctorDashboard() {
     recommendations: '',
   });
   const [services, setServices] = useState<LabService[]>([]);
-
+  const {data: session, status} = useSession();
   // Fetch data
   useEffect(() => {
     const load = async () => {
@@ -49,10 +52,37 @@ export default function DoctorDashboard() {
 
   const handlePatientClick = (app: AssignedPatient) => {
     setSelectedAppointment(app);
+
+    let visitDetails = '';
+    let diagnosis = '';
+    let complaints = '';
+
+    const rawHistory = app.patient.history;
+
+    let history: any[] = [];
+    if (rawHistory && typeof rawHistory === 'string') {
+      try {
+        history = JSON.parse(rawHistory);
+      } catch {}
+    } else if (Array.isArray(rawHistory)) {
+      history = rawHistory;
+    }
+
+    const historyEntry = history.find((h) => h.appointmentId === app.id);
+    if (historyEntry) {
+      visitDetails = historyEntry.visitDetails || '';
+      diagnosis = historyEntry.diagnosis || '';
+    }
+
+    if (app.examination) {
+      complaints = app.examination.complaints || '';
+      diagnosis = app.examination.diagnosis || diagnosis;
+    }
+
     setFormData({
-      complaints: '',
-      diagnosis: '',
-      visitDetails: '',
+      complaints,
+      diagnosis,
+      visitDetails,
       medicines: '',
       recommendations: '',
     });
@@ -118,24 +148,37 @@ export default function DoctorDashboard() {
     <ProtectedLayout allowedRoles={['DOCTOR']}>
       <div className="p-4 max-w-4xl mx-auto">
         <h1 className="text-2xl font-bold mb-4">Doctor Dashboard</h1>
+        {/* fetch user name from session */}
+        <p className="text-gray-600 mb-4">Welcome, {session?.user?.name || 'Doctor'}!</p>
+        {/* add logout button */}
+        <button
+          onClick={() => signOut({ callbackUrl: "/" })}
+          className="mb-6 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+        >
+          Logout      
+        </button>
+        
 
-        <div className="mb-6 space-y-4">
+        <PatientList appointments={appointments} onSelect={handlePatientClick} />
+
+        {selectedAppointment && (
+          <>
+            <MedicalHistory patientId={selectedAppointment.patient.id} />
+            <ExaminationSection
+              formData={formData}
+              onChange={handleChange}
+              onExamine={handleExamine}
+              onPrescribe={handlePrescribe}
+              patientName={selectedAppointment.patient.name}
+            />
+            <div className="mb-6 space-y-4">
           <CreateAppointmentForm />
           {selectedAppointment && (
             <LabAssign selectedAppointment={selectedAppointment} services={services} />
           )}
         </div>
-
-        <PatientList appointments={appointments} onSelect={handlePatientClick} />
-
-        {selectedAppointment && (
-          <ExaminationSection
-            formData={formData}
-            onChange={handleChange}
-            onExamine={handleExamine}
-            onPrescribe={handlePrescribe}
-            patientName={selectedAppointment.patient.name}
-          />
+            <LabResults appointmentId={selectedAppointment.id} />
+          </>
         )}
       </div>
     </ProtectedLayout>

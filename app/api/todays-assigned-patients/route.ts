@@ -17,37 +17,53 @@ export const GET = async () => {
   try {
     const appointments = await prisma.appointment.findMany({
       where: {
-        visitStatus: 'ASSIGNED_TO_DOCTOR',
-        doctorId: session.user.id, // ✅ Only patients assigned to this doctor
+        doctorId: session.user.id,
+        visitStatus: {
+          in: [
+            'ASSIGNED_TO_DOCTOR',
+            'LAB_ORDERED',
+            'ASSIGNED_TO_LAB',
+            'PAID_FOR_LAB',
+            'LAB_COMPLETED',
+            'EXAMINED',
+          ],
+        },
         createdAt: {
           gte: today,
-          lt: tomorrow, // Use `lt` instead of `lte` for clarity
+          lt: tomorrow,
         },
       },
       include: {
         patient: {
           select: {
+            id: true,
             name: true,
+            history: true,
           },
         },
       },
       orderBy: { createdAt: 'asc' },
     });
 
+    // ✅ Map with proper typing
     const result = appointments.map((apt) => {
+      // ✅ Safely parse vitals (it's Json? so could be object or null)
       const vitals = apt.vitals as { weight?: number; bpSystolic?: number; bpDiastolic?: number } | null;
 
       return {
         id: apt.id,
         patient: {
+          id: apt.patient.id,           // ✅ Pass id
           name: apt.patient.name,
-        },
+          history: apt.patient.history,        },
         vitals: {
           weight: vitals?.weight ?? null,
           bpSystolic: vitals?.bpSystolic ?? null,
           bpDiastolic: vitals?.bpDiastolic ?? null,
         },
         visitStatus: apt.visitStatus,
+        // ✅ Pass examination field (it's a Json? field)
+        examination: apt.examination,
       };
     });
 

@@ -1,6 +1,8 @@
 // components/doctor/ExaminationSection.tsx
 'use client';
 
+import { useState } from 'react';
+
 interface Props {
   formData: {
     complaints: string;
@@ -10,8 +12,8 @@ interface Props {
     recommendations: string;
   };
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => void;
-  onExamine: () => void;
-  onPrescribe: () => void;
+  onExamine: () => Promise<void> | void;
+  onPrescribe: () => Promise<void> | void;
   patientName: string;
 }
 
@@ -22,20 +24,31 @@ export default function ExaminationSection({
   onPrescribe,
   patientName,
 }: Props) {
+  const [examLoading, setExamLoading] = useState(false);
+  const [prescribeLoading, setPrescribeLoading] = useState(false);
+
+  const handleExamine = async () => {
+    setExamLoading(true);
+    await onExamine();
+    setExamLoading(false);
+  };
+
+  const handlePrescribe = async () => {
+    setPrescribeLoading(true);
+    await onPrescribe();
+    setPrescribeLoading(false);
+  };
+
   return (
     <div className="mt-6 bg-white p-6 border rounded shadow">
       <h3 className="text-lg font-semibold mb-4">Examination for: {patientName}</h3>
 
+      {/* Current Visit */}
       <form className="space-y-4">
-        <h4 className="text-md font-medium border-b pb-1">Health History & Condition</h4>
-        <textarea
-          name="visitDetails"
-          placeholder="Patient history, vitals, observations..."
-          value={formData.visitDetails}
-          onChange={onChange}
-          className="w-full border p-2 rounded resize-none"
-          rows={3}
-        />
+        <h4 className="text-md font-medium border-b pb-1">
+          Current Visit: Health History & Condition
+        </h4>
+
         <textarea
           name="complaints"
           placeholder="Presenting complaints"
@@ -54,13 +67,19 @@ export default function ExaminationSection({
         />
         <button
           type="button"
-          onClick={onExamine}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+          onClick={handleExamine}
+          disabled={examLoading}
+          className={`px-4 py-2 rounded text-white transition ${
+            examLoading
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700'
+          }`}
         >
-          Save Examination
+          {examLoading ? 'Saving...' : 'Save Examination'}
         </button>
       </form>
 
+      {/* Prescription */}
       <form className="space-y-4 mt-8 pt-6 border-t">
         <h4 className="text-md font-medium">Prescription</h4>
         <textarea
@@ -81,10 +100,15 @@ export default function ExaminationSection({
         />
         <button
           type="button"
-          onClick={onPrescribe}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
+          onClick={handlePrescribe}
+          disabled={prescribeLoading}
+          className={`px-4 py-2 rounded text-white transition ${
+            prescribeLoading
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-green-600 hover:bg-green-700'
+          }`}
         >
-          Save Prescription & Complete Visit
+          {prescribeLoading ? 'Saving...' : 'Save Prescription & Complete Visit'}
         </button>
       </form>
     </div>

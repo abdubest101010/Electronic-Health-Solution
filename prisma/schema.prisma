@@ -126,7 +126,7 @@ model Patient {
   gender          String?
   phone           String?
   address         String?
-  history         Json?             // [{ appointmentId, visitDetails, completedAt }]
+  history         String?            // [{ appointmentId, visitDetails, completedAt }]
   notifications   Json?             // [{ id, type, message, read, createdAt }]
   appointments    Appointment[]
 

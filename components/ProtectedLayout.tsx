@@ -15,9 +15,9 @@ export default function ProtectedLayout({ children, allowedRoles }: ProtectedLay
   useEffect(() => {
     if (status === 'loading') return;
     if (!session) {
-      router.push('/login');
+      router.push('/');
     } else if (!allowedRoles.includes(session.user.role)) {
-      router.push('/unauthorized');
+      router.push('/');
     }
   }, [session, status, router, allowedRoles]);
 

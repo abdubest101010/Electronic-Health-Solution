@@ -46,7 +46,7 @@ export default function RegisterPage() {
       setSuccess(true);
       // Clear form and redirect after 1.5s
       setTimeout(() => {
-        router.push('/login');
+        router.push('/');
       }, 1500);
     } catch (err: any) {
       setError(err.message);

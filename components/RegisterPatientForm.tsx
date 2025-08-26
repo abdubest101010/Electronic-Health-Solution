@@ -12,6 +12,7 @@ export default function RegisterPatientForm() {
     bpSystolic: '',
     bpDiastolic: '',
   });
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -19,6 +20,7 @@ export default function RegisterPatientForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
 
     const patientData = {
       name: formData.name,
@@ -46,6 +48,7 @@ export default function RegisterPatientForm() {
 
       if (res.ok) {
         alert('Patient registered as walk-in!');
+        window.location.reload();
         setFormData({
           name: '',
           gender: '',
@@ -62,6 +65,8 @@ export default function RegisterPatientForm() {
     } catch (err) {
       console.error('Registration failed:', err);
       alert('Network error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -132,9 +137,12 @@ export default function RegisterPatientForm() {
 
       <button
         type="submit"
-        className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition"
+        disabled={loading}
+        className={`w-full p-2 rounded text-white transition ${
+          loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+        }`}
       >
-        Register Walk-in
+        {loading ? 'Registering...' : 'Register Walk-in'}
       </button>
     </form>
   );

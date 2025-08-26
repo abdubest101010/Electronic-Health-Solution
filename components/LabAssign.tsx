@@ -1,4 +1,3 @@
-// components/LabAssign.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -26,6 +25,7 @@ export default function LabAssign({ selectedAppointment, services }: Props) {
   const [serviceIds, setServiceIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false); // 🆕 loading effect
 
   useEffect(() => {
     const fetchLaboratorists = async () => {
@@ -44,31 +44,31 @@ export default function LabAssign({ selectedAppointment, services }: Props) {
     fetchLaboratorists();
   }, []);
 
-   const assignToLab = async () => {
+  const assignToLab = async () => {
     if (!selectedAppointment) return alert('No patient selected.');
     if (!laboratoristId) return alert('Choose a laboratorist.');
     if (serviceIds.length === 0) return alert('Select at least one test.');
 
     try {
+      setSubmitting(true); // 🆕 show loading
+
       const body = {
         appointmentId: selectedAppointment.id,
         serviceIds,
         laboratoristId,
       };
 
-      console.log('Sending to API:', body); // 🐞 Debug: Check what's sent
-
       const res = await fetch('/api/lab-assign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify(body),
+        body: JSON.stringify(body),
       });
 
       const responseData = await res.json();
-      console.log('API Response:', responseData); // 🐞 Debug: See full response
 
       if (res.ok) {
         alert('Lab tests assigned!');
+        window.location.reload();
         setServiceIds([]);
         setLaboratoristId('');
       } else {
@@ -77,8 +77,11 @@ export default function LabAssign({ selectedAppointment, services }: Props) {
     } catch (err) {
       console.error('Network error:', err);
       alert('Failed to connect to server.');
+    } finally {
+      setSubmitting(false); // 🆕 stop loading
     }
-}
+  };
+
   if (!selectedAppointment) return null;
   if (loading) return <p>Loading laboratorists...</p>;
   if (error) return <p className="text-red-500">Error: {error}</p>;
@@ -124,12 +127,18 @@ export default function LabAssign({ selectedAppointment, services }: Props) {
 
       <button
         onClick={assignToLab}
-        disabled={!laboratoristId || serviceIds.length === 0}
-        className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
+        disabled={submitting || !laboratoristId || serviceIds.length === 0}
+        className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 flex items-center justify-center gap-2"
       >
-        Assign to Laboratorist
+        {submitting ? (
+          <>
+            <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
+            Assigning...
+          </>
+        ) : (
+          "Assign to Laboratorist"
+        )}
       </button>
     </div>
   );
 }
-
