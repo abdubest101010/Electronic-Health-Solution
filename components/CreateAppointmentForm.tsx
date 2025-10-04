@@ -7,11 +7,46 @@ interface Patient {
   name: string;
 }
 
-export default function CreateAppointmentForm({ patientId }: { patientId: number | null }) {
+export default function CreateAppointmentForm({ patientId }: { patientId: number }) {
   const [formData, setFormData] = useState({ patientId: '', dateTime: '' });
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null)
- 
+  const [error, setError] = useState<string | null>(null);
+  const [isUpdate, setIsUpdate] = useState(false);
+  const [appointmentId, setAppointmentId] = useState<number | null>(null);
+
+  useEffect(() => {
+    setFormData({ ...formData, patientId: patientId.toString() });
+    checkAppointment();
+  }, [patientId]);
+
+  const checkAppointment = async () => {
+    try {
+      const res = await fetch(`/api/appointments/check?patientId=${patientId}`, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to check appointment: HTTP ${res.status}`);
+      }
+      const { hasAppointment } = await res.json();
+      if (hasAppointment) {
+        const appointmentRes = await fetch(`/api/appointments/get?patientId=${patientId}`, {
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (appointmentRes.ok) {
+          const appointmentData = await appointmentRes.json();
+          setFormData({
+            patientId: patientId.toString(),
+            dateTime: appointmentData.dateTime ? new Date(appointmentData.dateTime).toISOString().slice(0, 16) : '',
+          });
+          setIsUpdate(true);
+          setAppointmentId(appointmentData.id);
+        }
+      }
+    } catch (err: any) {
+      console.error('💥 [CreateAppointmentForm] Error checking appointment:', err);
+      setError('Failed to check appointment status');
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -23,23 +58,27 @@ export default function CreateAppointmentForm({ patientId }: { patientId: number
     setError(null);
     try {
       console.log('🔄 [CreateAppointmentForm] Submitting appointment:', formData);
-      const res = await fetch('/api/appointments/create', {
-        method: 'POST',
+      const endpoint = isUpdate ? `/api/appointments/update?id=${appointmentId}` : '/api/appointments/create';
+      const res = await fetch(endpoint, {
+        method: isUpdate ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          patientId: (patientId),
+          patientId: parseInt(formData.patientId),
           dateTime: formData.dateTime,
         }),
       });
 
       const responseData = await res.json();
       if (res.ok) {
-        console.log('✅ [CreateAppointmentForm] Appointment created:', responseData);
-        alert('✅ Appointment created!');
-        setFormData({ patientId: '', dateTime: '' });
+        console.log(`✅ [CreateAppointmentForm] Appointment ${isUpdate ? 'updated' : 'created'}:`, responseData);
+        setFormData({ patientId: patientId.toString(), dateTime: '' });
+        if (!isUpdate) {
+          setIsUpdate(true);
+          setAppointmentId(responseData.id);
+        }
       } else {
-        console.warn('❌ [CreateAppointmentForm] Error creating appointment:', responseData);
-        alert(`❌ Error: ${responseData.error || 'Failed to create appointment'}`);
+        console.warn(`❌ [CreateAppointmentForm] Error ${isUpdate ? 'updating' : 'creating'} appointment:`, responseData);
+        alert(`❌ Error: ${responseData.error || `Failed to ${isUpdate ? 'update' : 'create'} appointment`}`);
       }
     } catch (err: any) {
       console.error('💥 [CreateAppointmentForm] Network error:', err);
@@ -51,12 +90,12 @@ export default function CreateAppointmentForm({ patientId }: { patientId: number
 
   return (
     <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow space-y-4">
-      <h2 className="text-xl font-semibold text-gray-700">Create Appointment</h2>
+      <h2 className="text-xl font-semibold text-gray-700">{isUpdate ? 'Update Appointment' : 'Create Appointment'}</h2>
       {error && (
         <div className="p-3 bg-red-100 text-red-700 border-l-4 border-red-500 rounded">
           {error}
         </div>
-      )} 
+      )}
       <div>
         <label className="block text-sm font-medium text-gray-600 mb-1">Date and Time</label>
         <input
@@ -76,10 +115,10 @@ export default function CreateAppointmentForm({ patientId }: { patientId: number
         {submitting ? (
           <>
             <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
-            Creating...
+            {isUpdate ? 'Updating...' : 'Creating...'}
           </>
         ) : (
-          'Create Appointment'
+          isUpdate ? 'Update Appointment' : 'Create Appointment'
         )}
       </button>
     </form>

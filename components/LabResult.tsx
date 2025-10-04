@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -24,44 +24,55 @@ interface LabResult {
   completedAt: string;
 }
 
-export default function LabResults({ patientId }: { patientId: number | null }) {
+interface Props {
+  patientId: number | null;
+  onResultsChange?: (count: number) => void;
+}
+
+export default function LabResults({ patientId, onResultsChange }: Props) {
   const [results, setResults] = useState<LabResult[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
-  useEffect(() => {
+  const fetchResults = useCallback(async () => {
     if (!patientId) {
       setResults([]);
       setLoading(false);
       console.log('⚠️ [LabResults] No patientId provided, skipping fetch');
+      if (onResultsChange) onResultsChange(0);
       return;
     }
 
-    const fetchResults = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        console.log('🔍 [LabResults] Fetching lab results for patientId:', patientId);
-        const res = await fetch(`/api/lab-result?patientId=${patientId}`);
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.error || 'Failed to fetch lab results');
-        }
-        const data: LabResult[] = await res.json();
-        console.log('✅ [LabResults] Fetched lab results:', data.length, data);
-        setResults(data);
-      } catch (err: any) {
-        console.error('❌ [LabResults] Error fetching lab results:', err);
-        setError(err.message || 'Failed to fetch lab results');
-      } finally {
-        setLoading(false);
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('🔍 [LabResults] Fetching lab results for patientId:', patientId);
+      const res = await fetch(`/api/lab-result?patientId=${patientId}`, {
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to fetch lab results');
       }
-    };
+      const data: LabResult[] = await res.json();
+      console.log('✅ [LabResults] Fetched lab results:', data.length, data);
+      setResults(data);
+      if (onResultsChange) onResultsChange(data.length);
+    } catch (err: any) {
+      console.error('❌ [LabResults] Error fetching lab results:', err);
+      setError(err.message || 'Failed to fetch lab results');
+      if (onResultsChange) onResultsChange(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [patientId, onResultsChange]);
 
+  useEffect(() => {
     fetchResults();
-  }, [patientId]);
+  }, [fetchResults]);
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);

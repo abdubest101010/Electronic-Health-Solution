@@ -2,97 +2,91 @@ import { NextResponse, NextRequest } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 
+interface LabTest {
+  labOrderId: number;
+  serviceName: string;
+  orderedByName: string;
+  doctorId: string;
+  doctorName: string;
+  laboratoristName: string;
+  status: string;
+  orderedAt: string;
+  paidAt?: string;
+}
+
+interface LabPatient {
+  patientId: number;
+  patientName: string;
+  doctorId?: string;
+  doctorName?: string;
+  visitStatus?: string;
+  labTestsByDate: { date: string; labTests: LabTest[] }[];
+}
+
 export async function GET(req: NextRequest) {
-  console.log('✅ [PatientLabOrders] Request received');
+  console.log('✅ [LabOrders] Request received');
 
   const session = await auth();
   if (!session || session.user.role !== 'RECEPTIONIST') {
-    console.log('❌ [PatientLabOrders] Unauthorized access - Missing or invalid session:', session);
+    console.log('❌ [LabOrders] Unauthorized access - Missing or invalid session:', session);
     return NextResponse.json({ error: 'Unauthorized: Receptionist only' }, { status: 401 });
   }
-  console.log('✅ [PatientLabOrders] User authenticated:', session.user.name, session.user.id);
+  console.log('✅ [LabOrders] User authenticated:', session.user.name, session.user.id);
 
   try {
-    console.log('🔍 [PatientLabOrders] Fetching lab orders for today...');
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today (Africa/Nairobi)
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1); // Start of tomorrow
-
-    const patients = await prisma.patient.findMany({
+    console.log('🔍 [LabOrders] Fetching all lab orders...');
+    const labOrders = await prisma.labOrder.findMany({
+      where: { orderedBy: { role: 'DOCTOR' } },
       include: {
-        doctor: {
-          select: {
-            name: true,
-            role: true,
-          },
-        },
-        appointments: {
-          include: {
-            labOrders: {
-              where: {
-                orderedBy: {
-                  role: 'DOCTOR',
-                },
-                orderedAt: {
-                  gte: today,
-                  lt: tomorrow,
-                },
-              },
-              include: {
-                service: {
-                  select: {
-                    name: true,
-                    type: true,
-                  },
-                },
-                laboratorist: {
-                  select: {
-                    name: true,
-                  },
-                },
-                orderedBy: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
-          orderBy: { createdAt: 'desc' },
-        },
+        patient: { include: { doctor: { select: { id: true, name: true } } } },
+        service: { select: { name: true } },
+        orderedBy: { select: { name: true } },
+        laboratorist: { select: { name: true } },
       },
+      orderBy: { orderedAt: 'desc' },
     });
 
-    // Filter patients with lab orders and format response
-    const result = patients
-      .filter((patient) => patient.appointments.some((apt) => apt.labOrders.length > 0))
-      .map((patient) => ({
-        patientId: patient.id,
-        patientName: patient.name,
-        doctorName: patient.doctor?.name || 'Not assigned',
-        visitStatus: patient.visitStatus || 'REGISTERED',
-        appointments: patient.appointments
-          .filter((apt) => apt.labOrders.length > 0)
-          .map((apt) => ({
-            appointmentId: apt.id,
-            labTests: apt.labOrders.map((lo) => ({
-              labOrderId: lo.id,
-              serviceName: lo.service.name,
-              orderedById: lo.orderedById,
-              orderedByName: lo.orderedBy.name,
-              laboratoristName: lo.laboratorist?.name || 'Not assigned',
-              status: lo.status,
-              orderedAt: lo.orderedAt.toISOString(),
-            })),
-            assignedAt: apt.createdAt.toISOString(),
-          })),
-      }));
+    const groupedByPatient = labOrders.reduce((acc, order) => {
+      const patientId = order.patient.id;
+      const date = order.orderedAt.toISOString().split('T')[0]; // YYYY-MM-DD
+      if (!acc[patientId]) {
+        acc[patientId] = {
+          patientId,
+          patientName: order.patient.name,
+          doctorId: order.patient.doctor?.id || '',
+          doctorName: order.patient.doctor?.name || 'Not assigned',
+          visitStatus: order.patient.visitStatus || 'REGISTERED',
+          labTestsByDate: [],
+        };
+      }
+      let dateGroup = acc[patientId].labTestsByDate.find((d) => d.date === date);
+      if (!dateGroup) {
+        dateGroup = { date, labTests: [] };
+        acc[patientId].labTestsByDate.push(dateGroup);
+      }
+      dateGroup.labTests.push({
+        labOrderId: order.id,
+        serviceName: order.service.name,
+        orderedByName: order.orderedBy.name,
+        doctorId: order.patient.doctor?.id || '',
+        doctorName: order.patient.doctor?.name || 'Not assigned',
+        laboratoristName: order.laboratorist?.name || 'Not assigned',
+        status: order.status,
+        orderedAt: order.orderedAt.toISOString(),
+        paidAt: order.paidAt?.toISOString(),
+      });
+      return acc;
+    }, {} as { [key: number]: LabPatient });
 
-    console.log('✅ [PatientLabOrders] Formatted response:', result);
+    const result = Object.values(groupedByPatient).map((patient) => ({
+      ...patient,
+      labTestsByDate: patient.labTestsByDate.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    }));
+
+    console.log('✅ [LabOrders] Fetched lab orders:', result.length);
     return NextResponse.json(result);
   } catch (error: any) {
-    console.error('💥 [PatientLabOrders] Unexpected error:', {
+    console.error('💥 [LabOrders] Unexpected error:', {
       message: error.message,
       stack: error.stack,
       ...(error.code && { prismaCode: error.code }),

@@ -120,6 +120,7 @@ model Patient {
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   name            String            @unique
+  lastName        String?
   dob             DateTime?
   age             Int?
   gender          String?
@@ -133,9 +134,11 @@ model Patient {
   assignedAt      DateTime?       
   appointments    Appointment[]
   vitals          Json?             // { weight, bpSystolic, bpDiastolic, measuredById, measuredAt }
-  examination     Json?             // { doctorId, complaints, diagnosis, examinedAt }
-  prescription    Json?             // { doctorId, medicines, recommendations, nextAppointment, createdAt }
+  examination     Json?             // [{ appointmentId, complaints, diagnosis, visitStatus, createdAt }]
+  prescription    Json?             // [{ appointmentId, medicines, recommendations, createdAt }]
   attachments     Json?             // [{ id, fileUrl, fileName, uploadedById, uploadedAt }]
+  labOrders   LabOrder[]
+
   @@index([name])
   @@index([doctorId])
 }
@@ -167,7 +170,6 @@ model Appointment {
 
   patient         Patient           @relation(fields: [patientId], references: [id])
   doctor          User?             @relation("DoctorAppointments", fields: [doctorId], references: [id])
-  labOrders       LabOrder[]
 
   @@index([patientId])
   @@index([doctorId])
@@ -180,7 +182,7 @@ model LabOrder {
   id                Int               @id @default(autoincrement())
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
-  appointmentId     Int
+  patientId         Int
   serviceId         Int
   orderedById       String
   laboratoristId    String?
@@ -189,13 +191,13 @@ model LabOrder {
   paidAt            DateTime?
   completedAt       DateTime?
   orderedAt     DateTime   @default(now())
-  appointment       Appointment       @relation(fields: [appointmentId], references: [id])
+  patient       Patient       @relation(fields: [patientId], references: [id])
   service           Service           @relation(fields: [serviceId], references: [id])
   orderedBy         User              @relation("OrderedByUser", fields: [orderedById], references: [id])
   laboratorist      User?             @relation("AssignedToLaboratorist", fields: [laboratoristId], references: [id])
 
   @@index([status])
   @@index([laboratoristId])
-  @@index([appointmentId])
+  @@index([patientId])
   @@index([serviceId])
 }

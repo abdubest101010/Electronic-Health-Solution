@@ -13,6 +13,7 @@ export interface AssignedPatient {
     measuredAt?: string | null;
   } | null;
   visitStatus: string;
+  assignedAt: string | null;
   examination?: {
     complaints?: string | null;
     diagnosis?: string | null;

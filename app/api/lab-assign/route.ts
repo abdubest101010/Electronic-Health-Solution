@@ -22,11 +22,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON format' }, { status: 400 });
   }
 
-  const { appointmentId, serviceIds, laboratoristId } = data;
+  const { patientId, serviceIds, laboratoristId } = data;
 
-  if (!appointmentId || isNaN(parseInt(appointmentId))) {
-    console.warn('❌ [LabAssign] Invalid or missing appointmentId:', appointmentId);
-    return NextResponse.json({ error: 'Valid appointmentId (number) is required' }, { status: 400 });
+  if (!patientId || isNaN(parseInt(patientId))) {
+    console.warn('❌ [LabAssign] Invalid or missing patientId:', patientId);
+    return NextResponse.json({ error: 'Valid patientId (number) is required' }, { status: 400 });
   }
 
   if (!Array.isArray(serviceIds) || serviceIds.length === 0) {
@@ -40,15 +40,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    console.log('🔍 [LabAssign] Verifying appointment and laboratorist...');
-    const appointment = await prisma.appointment.findUnique({
-      where: { id: parseInt(appointmentId) },
-      include: { patient: true },
+    console.log('🔍 [LabAssign] Verifying patient and laboratorist...');
+    const patient = await prisma.patient.findUnique({
+      where: { id: parseInt(patientId) },
     });
 
-    if (!appointment || appointment.doctorId !== session.user.id) {
-      console.warn('❌ [LabAssign] Appointment not found or unauthorized:', appointmentId, session.user.id);
-      return NextResponse.json({ error: 'Appointment not found or unauthorized' }, { status: 404 });
+    if (!patient) {
+      console.warn('❌ [LabAssign] Patient not found:', patientId);
+      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
     const laboratorist = await prisma.user.findUnique({
@@ -65,7 +64,7 @@ export async function POST(req: NextRequest) {
       ...serviceIds.map((serviceId: number) =>
         prisma.labOrder.create({
           data: {
-            appointmentId: parseInt(appointmentId),
+            patientId: parseInt(patientId),
             serviceId,
             orderedById: session.user.id,
             laboratoristId,
@@ -74,7 +73,7 @@ export async function POST(req: NextRequest) {
         })
       ),
       prisma.patient.update({
-        where: { id: appointment.patientId },
+        where: { id: parseInt(patientId) },
         data: { visitStatus: 'ASSIGNED_TO_LAB' },
       }),
     ]);

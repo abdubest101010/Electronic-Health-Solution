@@ -61,18 +61,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
+    // Normalize examination and prescription to arrays
+    const normalizedPatient = {
+      ...patient,
+      examination: Array.isArray(patient.examination) ? patient.examination : [],
+      prescription: Array.isArray(patient.prescription) ? patient.prescription : [],
+    };
+
     // Filter out null fields and format response
     const filteredPatient: Record<string, any> = {};
-    for (const [key, value] of Object.entries(patient)) {
+    for (const [key, value] of Object.entries(normalizedPatient)) {
       if (value !== null && value !== undefined) {
-        if (key === 'doctor' && patient.doctor) {
-          filteredPatient.doctorName = patient.doctor.name;
-        } else if (key === 'appointments' && patient.appointments[0]) {
+        if (key === 'doctor' && normalizedPatient.doctor) {
+          filteredPatient.doctorName = normalizedPatient.doctor.name;
+        } else if (key === 'appointments' && normalizedPatient.appointments[0]) {
           filteredPatient.latestAppointment = {
-            id: patient.appointments[0].id,
-            dateTime: patient.appointments[0].dateTime,
-            examination: patient.appointments[0].examination,
-            prescription: patient.appointments[0].prescription,
+            id: normalizedPatient.appointments[0].id,
+            dateTime: normalizedPatient.appointments[0].dateTime,
+            examination: normalizedPatient.examination,
+            prescription: normalizedPatient.prescription,
           };
         } else if (key !== 'doctor' && key !== 'appointments') {
           filteredPatient[key] = value;

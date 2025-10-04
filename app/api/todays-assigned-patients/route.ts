@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
-import { startOfDay, endOfDay } from 'date-fns';
 
 // Reuse your types
 interface VitalsJson {
@@ -13,44 +12,35 @@ interface VitalsJson {
 }
 
 interface ExaminationJson {
-  doctorId?: string | null;
+  appointmentId?: number | null;
   complaints?: string | null;
   diagnosis?: string | null;
-  examinedAt?: string | null;
+  visitStatus?: string | null;
+  createdAt?: string | null;
 }
 
 interface PrescriptionJson {
-  doctorId?: string | null;
+  appointmentId?: number | null;
   medicines?: string | null;
   recommendations?: string | null;
-  nextAppointment?: string | null;
   createdAt?: string | null;
 }
 
 export async function GET(req: NextRequest) {
-  console.log('✅ [TodaysAssignedPatients] Request received');
+  console.log('✅ [AssignedToDoctor] Request received');
 
   const session = await auth();
   if (!session || session.user.role !== 'DOCTOR') {
-    console.log('❌ [TodaysAssignedPatients] Unauthorized access');
+    console.log('❌ [AssignedToDoctor] Unauthorized access');
     return NextResponse.json({ error: 'Unauthorized: Doctor only' }, { status: 401 });
   }
 
   try {
-    const startOfToday = startOfDay(new Date());
-    const endOfToday = endOfDay(new Date());
-
-    console.log('📅 [TodaysAssignedPatients] Filtering patients assigned between:', startOfToday, 'and', endOfToday);
-
     const patients = await prisma.patient.findMany({
       where: {
         doctorId: session.user.id,
         visitStatus: {
           in: ['REGISTERED', 'VITALS_TAKEN', 'ASSIGNED_TO_DOCTOR', 'EXAMINED', 'LAB_ORDERED', 'PAID_FOR_LAB', 'ASSIGNED_TO_LAB', 'LAB_COMPLETED', 'FINALIZED'],
-        },
-        assignedAt: {
-          gte: startOfToday,
-          lte: endOfToday,
         },
       },
       select: {
@@ -59,6 +49,8 @@ export async function GET(req: NextRequest) {
         history: true,
         visitStatus: true,
         vitals: true,
+        examination: true,
+        prescription: true,
         appointments: {
           where: { doctorId: session.user.id },
           orderBy: { dateTime: 'desc' },
@@ -66,8 +58,6 @@ export async function GET(req: NextRequest) {
           select: {
             id: true,
             dateTime: true,
-            examination: true,
-            prescription: true,
           },
         },
       },
@@ -77,8 +67,10 @@ export async function GET(req: NextRequest) {
     const formatted = patients.map((patient) => {
       const latestAppointment = patient.appointments[0];
       const vitals = patient.vitals as VitalsJson | null;
-      const examination = latestAppointment?.examination as ExaminationJson | null;
-      const prescription = latestAppointment?.prescription as PrescriptionJson | null;
+      const examinations = Array.isArray(patient.examination) ? patient.examination as ExaminationJson[] : [];
+      const prescriptions = Array.isArray(patient.prescription) ? patient.prescription as PrescriptionJson[] : [];
+      const latestExamination = examinations.find(exam => exam.appointmentId === latestAppointment?.id) || examinations[examinations.length - 1];
+      const latestPrescription = prescriptions.find(pres => pres.appointmentId === latestAppointment?.id) || prescriptions[prescriptions.length - 1];
 
       return {
         id: latestAppointment?.id || 0,
@@ -92,13 +84,14 @@ export async function GET(req: NextRequest) {
           bpSystolic: vitals?.bpSystolic ?? null,
           bpDiastolic: vitals?.bpDiastolic ?? null,
         },
-        examination: examination
+        examination: latestExamination
           ? {
-              id: latestAppointment.id,
-              complaints: examination.complaints || '',
-              diagnosis: examination.diagnosis || '',
-              medicines: prescription?.medicines || '',
-              recommendations: prescription?.recommendations || '',
+              id: latestAppointment?.id || 0,
+              complaints: latestExamination.complaints || '',
+              diagnosis: latestExamination.diagnosis || '',
+              visitStatus: latestExamination.visitStatus || patient.visitStatus || '',
+              medicines: latestPrescription?.medicines || '',
+              recommendations: latestPrescription?.recommendations || '',
             }
           : null,
         visitStatus: patient.visitStatus,
@@ -111,10 +104,13 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    console.log('✅ [TodaysAssignedPatients] Formatted response:', formatted.length);
+    console.log('✅ [AssignedToDoctor] Formatted response:', formatted.length);
     return NextResponse.json(formatted);
   } catch (error: any) {
-    console.error('💥 [TodaysAssignedPatients] Unexpected error:', error);
+    console.error('💥 [AssignedToDoctor] Unexpected error:', {
+      message: error.message,
+      stack: error.stack,
+    });
     return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
   }
 }

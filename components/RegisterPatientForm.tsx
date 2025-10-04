@@ -31,6 +31,7 @@ import {
 export default function RegisterPatientForm({ onRegistrationComplete }: { onRegistrationComplete: () => void }) {
   const [formData, setFormData] = useState({
     name: '',
+    lastName: '',
     phone: '',
     address: '',
     gender: '',
@@ -47,7 +48,9 @@ export default function RegisterPatientForm({ onRegistrationComplete }: { onRegi
     if (!formData.name.trim()) {
       newErrors.name = 'Name is required';
     }
-
+    if (!formData.name.trim()) {
+      newErrors.name = 'Last name is required';
+    }
     if (!formData.phone.trim()) {
       newErrors.phone = 'Phone number is required';
     } else if (!/^\d{10,15}$/.test(formData.phone.replace(/[^0-9]/g, ''))) {
@@ -102,6 +105,7 @@ export default function RegisterPatientForm({ onRegistrationComplete }: { onRegi
         setTimeout(() => {
           setFormData({
             name: '',
+            lastName: '',
             phone: '',
             address: '',
             gender: '',
@@ -109,7 +113,7 @@ export default function RegisterPatientForm({ onRegistrationComplete }: { onRegi
           });
           setSubmitStatus('idle');
           setShowSuccess(false);
-          window.location.href = '/dashboard/receptionist';
+          window.location.href = '/receptionist';
         }, 2500);
       } else {
         throw new Error(data.error || 'Registration failed');
@@ -152,7 +156,10 @@ export default function RegisterPatientForm({ onRegistrationComplete }: { onRegi
   };
 
   return (
-    <Box component="form" onSubmit={handleSubmit}>
+    <Box
+      component="form"
+      onSubmit={handleSubmit}
+    >
       {/* Success Animation */}
       {showSuccess && (
         <Box
@@ -203,176 +210,127 @@ export default function RegisterPatientForm({ onRegistrationComplete }: { onRegi
 
       {/* Form Fields */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, width: '100%' }}>
-        <TextField
-          fullWidth
-          label="Full Name *"
-          name="name"
-          value={formData.name}
-          onChange={handleChange}
-          error={!!errors.name}
-          helperText={errors.name}
-          required
-          InputLabelProps={{ shrink: true }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <WcIcon sx={{ color: 'text.secondary' }} />
-              </InputAdornment>
-            ),
-            endAdornment: formData.name && (
-              <InputAdornment position="end">
-                <IconButton size="small" onClick={() => handleClearField('name')}>
-                  <CloseIcon fontSize="small" />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-          sx={{
-            '& .MuiFormHelperText-root': {
-              ml: 3,
-            },
-          }}
-        />
+  <Box sx={{ display: 'flex', gap: 2 }}>
+    <TextField
+      fullWidth
+      label="First Name *"
+      name="name"
+      value={formData.name}
+      onChange={handleChange}
+      error={!!errors.firstName}
+      helperText={errors.firstName}
+      required
+      sx={{
+        backgroundColor: '#fff',
+        borderRadius: 1,
+        '& .MuiOutlinedInput-root': {
+          borderRadius: 1,
+        },
+        flex: 1,
+      }}
+    />
+    <TextField
+      fullWidth
+      label="Last Name *"
+      name="lastName"
+      value={formData.lastName}
+      onChange={handleChange}
+      error={!!errors.lastName}
+      helperText={errors.lastName}
+      required
+      sx={{
+        backgroundColor: '#fff',
+        borderRadius: 1,
+        '& .MuiOutlinedInput-root': {
+          borderRadius: 1,
+        },
+        flex: 1,
+      }}
+    />
+  </Box>
 
-        <TextField
-          fullWidth
-          label="Phone Number *"
-          name="phone"
-          value={formData.phone}
-          onChange={handleChange}
-          error={!!errors.phone}
-          helperText={errors.phone}
-          required
-          InputLabelProps={{ shrink: true }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <PhoneIcon sx={{ color: 'text.secondary' }} />
-              </InputAdornment>
-            ),
-            endAdornment: formData.phone && (
-              <InputAdornment position="end">
-                <IconButton size="small" onClick={() => handleClearField('phone')}>
-                  <CloseIcon fontSize="small" />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-        />
+  <Box sx={{ display: 'flex', gap: 2 }}>
+    <TextField
+      fullWidth
+      label="What is your age? *"
+      name="age"
+      type="number"
+      value={formData.age}
+      onChange={handleChange}
+      error={!!errors.age}
+      helperText={errors.age}
+      required
+      sx={{
+        backgroundColor: '#fff',
+        borderRadius: 1,
+        '& .MuiOutlinedInput-root': {
+          borderRadius: 1,
+        },
+        flex: 1,
+      }}
+    />
+    <FormControl fullWidth error={!!errors.gender} sx={{ flex: 1 }}>
+      <InputLabel id="gender-label" shrink>What is your gender? *</InputLabel>
+      <Select
+        labelId="gender-label"
+        name="gender"
+        value={formData.gender}
+        onChange={handleChange}
+        label="What is your gender? *"
+        displayEmpty
+        required
+        sx={{
+          backgroundColor: '#fff',
+          borderRadius: 1,
+          '& .MuiOutlinedInput-notchedOutline': {
+            borderRadius: 1,
+          },
+        }}
+      >
+        <MenuItem value=""><em>Please Select</em></MenuItem>
+        <MenuItem value="MALE">Male</MenuItem>
+        <MenuItem value="FEMALE">Female</MenuItem>
+      </Select>
+      {errors.gender && <FormHelperText>{errors.gender}</FormHelperText>}
+    </FormControl>
+  </Box>
 
-        <FormControl fullWidth error={!!errors.gender}>
-          <InputLabel id="gender-label" shrink>
-            Gender *
-          </InputLabel>
-          <Select
-            labelId="gender-label"
-            name="gender"
-            value={formData.gender}
-            onChange={handleChange}
-            label="Gender *"
-            displayEmpty
-            required
-            sx={{
-              textAlign: 'left',
-              '& .MuiSelect-select': {
-                display: 'flex',
-                alignItems: 'center',
-              },
-            }}
-            startAdornment={
-              <InputAdornment position="start" sx={{ mr: 1 }}>
-                <WcIcon sx={{ color: 'text.secondary' }} />
-              </InputAdornment>
-            }
-          >
-            <MenuItem value="">
-              <Typography color="text.secondary">Select Gender *</Typography>
-            </MenuItem>
-            <MenuItem value="MALE">
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Box
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    backgroundColor: '#1976d2',
-                    mr: 1,
-                  }}
-                />
-                Male
-              </Box>
-            </MenuItem>
-            <MenuItem value="FEMALE">
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Box
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    backgroundColor: '#e91e63',
-                    mr: 1,
-                  }}
-                />
-                Female
-              </Box>
-            </MenuItem>
-          </Select>
-          {errors.gender && <FormHelperText>{errors.gender}</FormHelperText>}
-        </FormControl>
+  <TextField
+    fullWidth
+    label="Phone Number *"
+    name="phone"
+    value={formData.phone}
+    onChange={handleChange}
+    error={!!errors.phone}
+    helperText={errors.phone}
+    required
+    sx={{
+      backgroundColor: '#fff',
+      borderRadius: 1,
+      '& .MuiOutlinedInput-root': {
+        borderRadius: 1,
+      },
+    }}
+  />
 
-        <TextField
-          fullWidth
-          label="Age *"
-          name="age"
-          type="number"
-          value={formData.age}
-          onChange={handleChange}
-          error={!!errors.age}
-          helperText={errors.age}
-          required
-          InputLabelProps={{ shrink: true }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <CakeIcon sx={{ color: 'text.secondary' }} />
-              </InputAdornment>
-            ),
-            endAdornment: formData.age && (
-              <InputAdornment position="end">
-                <IconButton size="small" onClick={() => handleClearField('age')}>
-                  <CloseIcon fontSize="small" />
-                </IconButton>
-              </InputAdornment>
-            ),
-            inputProps: { min: 0, max: 120 },
-          }}
-        />
+  <TextField
+    fullWidth
+    label="Address"
+    name="address"
+    multiline
+    rows={3}
+    value={formData.address}
+    onChange={handleChange}
+    sx={{
+      backgroundColor: '#fff',
+      borderRadius: 1,
+      '& .MuiOutlinedInput-root': {
+        borderRadius: 1,
+      },
+    }}
+  />
+</Box>
 
-        <TextField
-          fullWidth
-          label="Address"
-          name="address"
-          multiline
-          rows={3}
-          value={formData.address}
-          onChange={handleChange}
-          InputLabelProps={{ shrink: true }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <HomeIcon sx={{ color: 'text.secondary' }} />
-              </InputAdornment>
-            ),
-            endAdornment: formData.address && (
-              <InputAdornment position="end">
-                <IconButton size="small" onClick={() => handleClearField('address')}>
-                  <CloseIcon fontSize="small" />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-        />
-      </Box>
 
       {/* Submit Button */}
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, pt: 3, borderTop: '1px solid #eee' }}>

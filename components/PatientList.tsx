@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { AssignedPatient } from '@/types/appointment';
 import {
   Box,
@@ -13,6 +14,7 @@ import {
   Paper,
   Typography,
   Link,
+  CircularProgress,
 } from '@mui/material';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 
@@ -22,6 +24,12 @@ interface PatientListProps {
 
 export default function PatientList({ patients }: PatientListProps) {
   const router = useRouter();
+  const [loadingPatientId, setLoadingPatientId] = useState<number | null>(null);
+
+  const handleLinkClick = (patientId: number) => {
+    setLoadingPatientId(patientId); // Set loading state for the clicked patient
+    router.push(`/doctor/patient/${patientId}`); // Navigate to patient details
+  };
 
   if (patients.length === 0) {
     return (
@@ -41,8 +49,7 @@ export default function PatientList({ patients }: PatientListProps) {
           <TableRow>
             <TableCell sx={{ fontWeight: 600, color: '#1a237e' }}>Name</TableCell>
             <TableCell sx={{ fontWeight: 600, color: '#1a237e' }}>Visit Status</TableCell>
-            {/* Uncomment if latestAppointment is added to AssignedPatient interface */}
-            {/* <TableCell sx={{ fontWeight: 600, color: '#1a237e' }}>Appointment Date</TableCell> */}
+            <TableCell sx={{ fontWeight: 600, color: '#1a237e' }}>Assigned At</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -56,34 +63,40 @@ export default function PatientList({ patients }: PatientListProps) {
               }}
             >
               <TableCell>
-                <Link
-                  href={`/dashboard/doctor/patient/${patient.patient.id}`}
-                  sx={{
-                    color: '#1a237e',
-                    textDecoration: 'none',
-                    fontWeight: 500,
-                    '&:hover': {
-                      textDecoration: 'underline',
-                      color: '#283593',
-                    },
-                  }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    router.push(`/dashboard/doctor/patient/${patient.patient.id}`);
-                  }}
-                >
-                  {patient.patient.name}
-                </Link>
+                {loadingPatientId === patient.patient.id ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <CircularProgress size={20} sx={{ color: '#1a237e', mr: 1 }} />
+                    <Typography color="text.secondary"></Typography>
+                  </Box>
+                ) : (
+                  <Link
+                    href={`/doctor/patient/${patient.patient.id}`}
+                    sx={{
+                      color: '#1a237e',
+                      textDecoration: 'none',
+                      fontWeight: 500,
+                      '&:hover': {
+                        textDecoration: 'underline',
+                        color: '#283593',
+                      },
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleLinkClick(patient.patient.id);
+                    }}
+                  >
+                    {patient.patient.name}
+                  </Link>
+                )}
               </TableCell>
               <TableCell>{patient.visitStatus.replace(/_/g, ' ')}</TableCell>
-              {/* Uncomment if latestAppointment is added to AssignedPatient interface */}
-              {/* <TableCell>
-                {patient.latestAppointment?.dateTime
-                  ? new Date(patient.latestAppointment.dateTime).toLocaleDateString('en-US', {
+              <TableCell>
+                {patient.assignedAt
+                  ? new Date(patient.assignedAt).toLocaleDateString('en-US', {
                       timeZone: 'Africa/Nairobi',
                     })
-                  : 'No appointment date found'}
-              </TableCell> */}
+                  : 'Not assigned'}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

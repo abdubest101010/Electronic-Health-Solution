@@ -15,8 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Women's Birth Clinic",
-  description: "Specialized care for pregnancy, birth, and women's health",
+
+title:  "NISWA Clinic",
+description: "Specialized care for pregnancy, birth, and women's health",
 };
 
 export default function RootLayout({

@@ -55,7 +55,7 @@ export default function PatientSearchFilter() {
   const handleSelectPatient = (patientId: string) => {
     setSearchTerm(''); // Clear search input
     setSearchResults([]); // Clear results
-    router.push(`/dashboard/receptionist/patients/${patientId}`); // Redirect to patient details
+    router.push(`/receptionist/patients/${patientId}`); // Redirect to patient details
   };
 
   return (

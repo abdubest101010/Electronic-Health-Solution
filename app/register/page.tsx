@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-
+import { Typography } from '@mui/material'
+import Link from 'next/link';
 type Role = 'RECEPTIONIST' | 'DOCTOR' | 'LABORATORIST';
 
 export default function RegisterPage() {
@@ -57,7 +58,13 @@ export default function RegisterPage() {
 
   return (
     <div className="max-w-md mx-auto mt-10 p-6 bg-white border rounded-lg shadow">
-      <h1 className="text-2xl font-bold mb-6">Register New User</h1>
+       <Typography variant="h4" sx={{ mb: 1, textAlign: 'center', color: '#1a237e' }}>
+       <span style={{ color: '#E07A3F' }}>NISWA Clinic</span>
+        </Typography>
+        <Typography variant="h6" sx={{ mb: 3, textAlign: 'center' }}>
+          Register New User
+        </Typography>
+      {/* <h1 className="text-2xl font-bold mb-6">Register New User</h1> */}
 
       {success ? (
         <div className="text-green-600 text-center">
@@ -129,7 +136,14 @@ export default function RegisterPage() {
             {loading ? 'Creating Account...' : 'Register'}
           </button>
         </form>
+        
       )}
+       <Typography variant="body2" align="center" sx={{ mt: 2 }}>
+            You already have an account?{' '}
+            <Link href="/login" style={{ color: '#1976d2', textDecoration: 'underline' }}>
+              Login
+            </Link>
+          </Typography>
     </div>
   );
 }

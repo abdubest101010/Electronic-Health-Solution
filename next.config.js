@@ -1,16 +1,25 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['images.unsplash.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        port: '',
+        pathname: '/**',
+      },
+    ],
   },
   webpack: (config) => {
+    // Explicitly override watchOptions to exclude problematic system paths
     config.watchOptions = {
       ignored: [
-        'C:\\DumpStack.log.tmp',
-        'C:\\System Volume Information',
-        'C:\\hiberfil.sys',
-        'C:\\pagefile.sys',
-        'C:\\swapfile.sys',
+        '**/node_modules/**',
+        '**/.next/**',
+        '**/.git/**',
+        '**/*.log',
+        '**/*.tmp',
+        '**/.DS_Store',
       ],
     };
     return config;

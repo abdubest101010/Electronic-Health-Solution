@@ -27,9 +27,9 @@ export async function POST(req: NextRequest) {
     const labOrder = await prisma.labOrder.findUnique({
       where: { id: labOrderId },
       include: {
-        appointment: {
+        patient: {
           include: {
-            patient: true,
+            labOrders: true,
           },
         },
       },
@@ -62,17 +62,17 @@ export async function POST(req: NextRequest) {
 
     // Update patient visitStatus if all lab orders for the appointment are completed
     const allLabOrders = await prisma.labOrder.findMany({
-      where: { appointmentId: labOrder.appointmentId },
+      where: { patientId: labOrder.patientId },
     });
 
     const allCompleted = allLabOrders.every((lo) => lo.status === 'COMPLETED');
 
     if (allCompleted) {
       await prisma.patient.update({
-        where: { id: labOrder.appointment.patientId },
+        where: { id: labOrder.patientId },
         data: { visitStatus: 'LAB_COMPLETED' },
       });
-      console.log(`✅ [SubmitLabResult] Updated visitStatus to LAB_COMPLETED for appointment ${labOrder.appointmentId}`);
+      // console.log(`✅ [SubmitLabResult] Updated visitStatus to LAB_COMPLETED for appointment ${labOrder.[]}`);
     }
 
     console.log('✅ [SubmitLabResult] Lab result submitted:', labOrderId);

@@ -24,7 +24,7 @@ interface PatientData {
   createdAt: string | Date;
 }
 
-export default function TodayRegistrations() {
+export default function AllPatients() {
   const [patients, setPatients] = useState<PatientData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,10 +36,10 @@ export default function TodayRegistrations() {
       try {
         setError(null);
         setLoading(true);
-        const res = await fetch('/api/todays-registered');
+        const res = await fetch('/api/patients');
         if (!res.ok) throw new Error('Failed to load data');
         const data = await res.json();
-        console.log('Fetched today’s patients:', data);
+        console.log('Fetched all patients:', data);
         setPatients(data);
       } catch (err) {
         setError('Failed to load patients. Please try again.');
@@ -68,7 +68,7 @@ export default function TodayRegistrations() {
         <Box display="flex" alignItems="center">
           <PersonAddIcon sx={{ mr: 1, color: '#1a237e', fontSize: 28 }} />
           <Typography variant="h6" sx={{ fontWeight: 500, color: '#1a237e' }}>
-            Today’s Registered Patients
+            All Registered Patients
           </Typography>
         </Box>
         <Typography variant="body2" sx={{ color: '#1a237e', fontWeight: 500 }}>

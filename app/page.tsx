@@ -7,7 +7,7 @@ import { Box, Card, CardContent, Typography } from '@mui/material';
 
 export default function HomePage() {
   return (
-    <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
+    <Box sx={{ maxWidth: 1200, mx: 'auto', marginTop:13 }}>
       {/* Hero Section */}
       <Box
         sx={{

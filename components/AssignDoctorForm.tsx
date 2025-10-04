@@ -15,6 +15,7 @@ import {
   CardContent,
 } from '@mui/material';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import { useRouter } from 'next/navigation';
 
 interface Doctor {
   id: string;
@@ -34,6 +35,7 @@ export default function AssignDoctorForm({ patientId, patientName, onAssign }: A
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchDoctors = async () => {
@@ -77,8 +79,11 @@ export default function AssignDoctorForm({ patientId, patientName, onAssign }: A
 
       if (res.ok) {
         setSuccess('Doctor assigned successfully!');
+
         setDoctorId('');
         if (onAssign) onAssign();
+        router.push("/receptionist");
+
       } else {
         setError(data.error || 'Failed to assign doctor.');
       }
@@ -91,7 +96,7 @@ export default function AssignDoctorForm({ patientId, patientName, onAssign }: A
   };
 
   return (
-    <Card sx={{ borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', mt: 3 }}>
+    <Card sx={{ borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', mt: 3, maxWidth: { xs: '100%', md: 400 }, mx: { xs: 0,  } }}>
       <CardContent sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <PersonAddIcon

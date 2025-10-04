@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   console.log('✅ [PaidLabOrders] Request received');
 
   const session = await auth();
@@ -35,17 +35,15 @@ export async function GET(request: Request) {
           },
         },
         include: {
-          appointment: {
+          patient: {
             include: {
-              patient: {
-                select: { name: true },
-              },
-              doctor: {
-                select: { id: true, name: true },
-              },
+              doctor: { select: { id: true, name: true } },
             },
           },
           service: {
+            select: { name: true },
+          },
+          orderedBy: {
             select: { name: true },
           },
           laboratorist: {
@@ -70,11 +68,11 @@ export async function GET(request: Request) {
 
     const formatted = labOrders.map((order) => ({
       labOrderId: order.id,
-      appointmentId: order.appointmentId,
-      patientName: order.appointment.patient.name,
+      patientName: order.patient.name,
       serviceName: order.service.name,
-      doctorName: order.appointment.doctor?.name || 'Unknown',
-      doctorId: order.appointment.doctor?.id || '',
+      doctorId: order.patient.doctor?.id || '',
+      doctorName: order.patient.doctor?.name || 'Not assigned',
+      orderedByName: order.orderedBy.name,
       laboratoristName: order.laboratorist?.name || 'Not assigned',
       orderedAt: order.orderedAt.toISOString(),
       paidAt: order.paidAt?.toISOString() || '',

@@ -1,7 +1,7 @@
 'use client';
 
-import { signIn } from 'next-auth/react';
-import { useState } from 'react';
+import { signIn, useSession } from 'next-auth/react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Box, Button, Card, CardContent, TextField, Typography, CircularProgress } from '@mui/material';
@@ -11,6 +11,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { data: session, status } = useSession();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,10 +40,15 @@ export default function Login() {
       } else {
         setError('An unexpected error occurred.');
       }
-    } else if (res?.ok) {
-      router.push('/dashboard');
     }
   };
+
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user?.role) {
+      const role = session.user.role.toLowerCase();
+      router.push(`/${role}`);
+    }
+  }, [status, session, router]);
 
   return (
     <Box
@@ -58,7 +64,7 @@ export default function Login() {
       <Card sx={{ maxWidth: 400, width: '100%', p: 3, boxShadow: 3 }}>
         <CardContent>
           <Typography variant="h5" align="center" color="primary" gutterBottom>
-            Login to Women's Birth Clinic
+            <span style={{ color: '#E07A3F' }}>NISWA Clinic</span>
           </Typography>
           <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
