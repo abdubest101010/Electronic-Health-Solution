@@ -14,10 +14,17 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 
+interface Appointment {
+  id: number;
+  dateTime: string | null;
+  status: string;
+}
+
 interface PatientData {
   id: string;
   name: string;
   createdAt: string | Date;
+  appointments: Appointment[];
 }
 
 export default function PatientSearchFilter() {
@@ -68,7 +75,7 @@ export default function PatientSearchFilter() {
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
-              <SearchIcon sx={{ color: 'text.secondary' }} />
+              <SearchIcon sx={{ color: '#1a237e' }} />
             </InputAdornment>
           ),
         }}
@@ -77,6 +84,18 @@ export default function PatientSearchFilter() {
           '& .MuiOutlinedInput-root': {
             borderRadius: 2,
             backgroundColor: '#f8f9ff',
+            '&:hover fieldset': {
+              borderColor: '#283593',
+            },
+            '&.Mui-focused fieldset': {
+              borderColor: '#1a237e',
+            },
+          },
+          '& .MuiInputLabel-root': {
+            color: '#1a237e',
+            '&.Mui-focused': {
+              color: '#1a237e',
+            },
           },
         }}
       />
@@ -93,42 +112,53 @@ export default function PatientSearchFilter() {
             zIndex: 1000,
             mt: 1,
             boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+            borderRadius: 2,
+            border: '1px solid #e0e0e0',
           }}
         >
           {isLoading ? (
             <Box sx={{ p: 2 }}>
-              <Typography color="text.secondary">Loading...</Typography>
+              <Typography color="#1a237e">Loading...</Typography>
             </Box>
           ) : searchResults.length === 0 ? (
             <Box sx={{ p: 2 }}>
-              <Typography color="text.secondary">No patients found</Typography>
+              <Typography color="#1a237e">No patients found</Typography>
             </Box>
           ) : (
             <List>
               {searchResults.map((patient) => (
                 <ListItem
                   key={patient.id}
-                  component="button" // ✅ Renders as <button>
-                  onClick={() => handleSelectPatient(patient.id)} // ✅ Adds click handler
+                  component="button"
+                  onClick={() => handleSelectPatient(patient.id)}
                   sx={{
-                    textAlign: 'left', // Ensure text aligns properly
+                    textAlign: 'left',
                     '&:hover': {
-                      backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                      backgroundColor: 'rgba(40, 53, 147, 0.04)',
                     },
-                    paddingY: 1.5, // Optional: improve tap target size
+                    paddingY: 1.5,
+                    borderBottom: '1px solid #e0e0e0',
+                    '&:last-child': { borderBottom: 'none' },
                   }}
                 >
                   <ListItemText
                     primary={patient.name}
-                    secondary={new Date(patient.createdAt).toLocaleDateString('en-US', {
-                      timeZone: 'Africa/Nairobi',
-                    })}
+                    secondary={
+                      patient.appointments.length > 0 && patient.appointments[0].dateTime
+                        ? `Appt: ${new Date(patient.appointments[0].dateTime).toLocaleString('en-US', {
+                            dateStyle: 'short',
+                            timeStyle: 'short',
+                            timeZone: 'Africa/Nairobi',
+                          })}`
+                        : 'No Appointment'
+                    }
                     primaryTypographyProps={{
                       color: '#1a237e',
                       fontWeight: 500,
                     }}
                     secondaryTypographyProps={{
-                      color: 'text.secondary',
+                      color: patient.appointments.length > 0 ? '#2e7d32' : '#d32f2f',
+                      fontSize: '0.85rem',
                     }}
                   />
                 </ListItem>

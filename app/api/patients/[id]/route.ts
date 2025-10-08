@@ -45,12 +45,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           },
         },
         appointments: {
-          where: { doctorId: session.user.id },
+          where: { status: 'SCHEDULED' }, // Only fetch SCHEDULED appointments
           orderBy: { dateTime: 'desc' },
           take: 1,
           select: {
             id: true,
             dateTime: true,
+            status: true, // Include status to match /api/patients
           },
         },
       },
@@ -78,6 +79,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           filteredPatient.latestAppointment = {
             id: normalizedPatient.appointments[0].id,
             dateTime: normalizedPatient.appointments[0].dateTime,
+            status: normalizedPatient.appointments[0].status, // Include status
             examination: normalizedPatient.examination,
             prescription: normalizedPatient.prescription,
           };

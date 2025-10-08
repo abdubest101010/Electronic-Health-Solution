@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
       where: searchTerm
         ? {
             name: {
-              contains: searchTerm.toLowerCase(), // Convert search term to lowercase
+              contains: searchTerm.toLowerCase(), // Keep original search logic
             },
           }
         : {},
@@ -29,6 +29,16 @@ export async function GET(req: NextRequest) {
         id: true,
         name: true,
         createdAt: true,
+        appointments: {
+          where: { status: 'SCHEDULED' }, // Fetch only scheduled appointments
+          select: {
+            id: true,
+            dateTime: true,
+            status: true,
+          },
+          orderBy: { dateTime: 'desc' }, // Get the latest appointment
+          take: 1, // Limit to the most recent appointment
+        },
       },
       orderBy: { createdAt: 'desc' },
     });

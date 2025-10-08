@@ -1,3 +1,4 @@
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -10,20 +11,6 @@ const nextConfig = {
       },
     ],
   },
-  webpack: (config) => {
-    // Explicitly override watchOptions to exclude problematic system paths
-    config.watchOptions = {
-      ignored: [
-        '**/node_modules/**',
-        '**/.next/**',
-        '**/.git/**',
-        '**/*.log',
-        '**/*.tmp',
-        '**/.DS_Store',
-      ],
-    };
-    return config;
-  },
 };
 
-module.exports = nextConfig;
+export default nextConfig;

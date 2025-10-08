@@ -18,10 +18,17 @@ import {
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { useState } from 'react';
 
+interface Appointment {
+  id: number;
+  dateTime: string | null;
+  status: string;
+}
+
 interface PatientData {
   id: string;
   name: string;
   createdAt: string | Date;
+  appointments: Appointment[];
 }
 
 interface PatientTableProps {
@@ -52,18 +59,33 @@ export default function PatientTable({ patients }: PatientTableProps) {
           <Button
             variant="outlined"
             onClick={() => router.push('/receptionist')}
-            sx={{ color: '#1a237e', borderColor: '#1a237e', '&:hover': { borderColor: '#283593', backgroundColor: 'rgba(40, 53, 147, 0.04)' } }}
+            sx={{
+              color: '#1a237e',
+              borderColor: '#1a237e',
+              '&:hover': { borderColor: '#283593', backgroundColor: 'rgba(40, 53, 147, 0.04)' },
+              padding: '6px 16px',
+              fontWeight: 500,
+            }}
           >
             Back to Dashboard
           </Button>
         </Box>
       )}
-      <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 'none' }}>
+      <TableContainer
+        component={Paper}
+        sx={{
+          borderRadius: 2,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          border: '1px solid #e0e0e0',
+        }}
+      >
         <Table>
           <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 500, color: '#1a237e' }}>Name</TableCell>
-              <TableCell sx={{ fontWeight: 500, color: '#1a237e' }}>Registered At</TableCell>
+            <TableRow sx={{ backgroundColor: '#f8f9ff' }}>
+              <TableCell sx={{ fontWeight: 600, color: '#1a237e', py: 2 }}>Name</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#1a237e', py: 2 }}>Registered At</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#1a237e', py: 2 }}>Appointment Date</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#1a237e', py: 2 }}>Status</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -72,7 +94,7 @@ export default function PatientTable({ patients }: PatientTableProps) {
                 key={patient.id}
                 sx={{
                   '&:hover': {
-                    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                    backgroundColor: 'rgba(40, 53, 147, 0.04)',
                   },
                 }}
               >
@@ -85,7 +107,7 @@ export default function PatientTable({ patients }: PatientTableProps) {
                       sx={{
                         color: '#1a237e',
                         textDecoration: 'none',
-                        fontWeight: 400,
+                        fontWeight: 500,
                         '&:hover': {
                           textDecoration: 'underline',
                           color: '#283593',
@@ -102,11 +124,44 @@ export default function PatientTable({ patients }: PatientTableProps) {
                   )}
                 </TableCell>
                 <TableCell sx={{ color: '#1a237e' }}>
-                  {new Date(patient.createdAt).toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
+                  {new Date(patient.createdAt).toLocaleString('en-US', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
                     timeZone: 'Africa/Nairobi',
                   })}
+                </TableCell>
+                <TableCell sx={{ color: '#1a237e' }}>
+                  {patient.appointments.length > 0 && patient.appointments[0].dateTime
+                    ? new Date(patient.appointments[0].dateTime).toLocaleString('en-US', {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                        timeZone: 'Africa/Nairobi',
+                      })
+                    : 'No Appointment'}
+                </TableCell>
+                <TableCell sx={{ color: '#1a237e' }}>
+                  {patient.appointments.length > 0 ? (
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        display: 'inline-block',
+                        px: 1,
+                        py: 0.5,
+                        borderRadius: 1,
+                        bgcolor:
+                          patient.appointments[0].status === 'SCHEDULED'
+                            ? 'rgba(46, 125, 50, 0.1)'
+                            : 'rgba(211, 47, 47, 0.1)',
+                        color:
+                          patient.appointments[0].status === 'SCHEDULED' ? '#2e7d32' : '#d32f2f',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {patient.appointments[0].status}
+                    </Typography>
+                  ) : (
+                    'N/A'
+                  )}
                 </TableCell>
               </TableRow>
             ))}

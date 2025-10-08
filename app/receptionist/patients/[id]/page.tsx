@@ -44,6 +44,7 @@ interface PatientData {
   latestAppointment?: {
     id: number;
     dateTime?: string;
+    status?: string; // Added status
     examination?: any;
     prescription?: any;
   };
@@ -139,21 +140,21 @@ export default function PatientDetails({ params }: { params: Promise<{ id: strin
   if (loading) {
     return (
       <ProtectedLayout allowedRoles={['RECEPTIONIST']}>
-      <Box sx={{ p: 2, maxWidth: 1000, mx: 'auto', bgcolor: '#fff', borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-        <Skeleton variant="text" width="40%" height={40} sx={{ mb: 2, mx: 2 }} />
-        <TableContainer component={Paper} sx={{ borderRadius: 2, mx: 2, boxShadow: 'none' }}>
-          <Table>
-            <TableBody>
-              {[...Array(5)].map((_, index) => (
-                <TableRow key={index}>
-                  <TableCell><Skeleton variant="text" width="30%" /></TableCell>
-                  <TableCell><Skeleton variant="text" width="60%" /></TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
+        <Box sx={{ p: 2, maxWidth: 1000, mx: 'auto', bgcolor: '#fff', borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+          <Skeleton variant="text" width="40%" height={40} sx={{ mb: 2, mx: 2 }} />
+          <TableContainer component={Paper} sx={{ borderRadius: 2, mx: 2, boxShadow: 'none' }}>
+            <Table>
+              <TableBody>
+                {[...Array(5)].map((_, index) => (
+                  <TableRow key={index}>
+                    <TableCell><Skeleton variant="text" width="30%" /></TableCell>
+                    <TableCell><Skeleton variant="text" width="60%" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
       </ProtectedLayout>
     );
   }
@@ -221,15 +222,15 @@ export default function PatientDetails({ params }: { params: Promise<{ id: strin
   const hasVitals = patient.vitals && Object.keys(patient.vitals).length > 0;
 
   return (
-    <Box sx={{ p: 2, maxWidth: 1000, mx: 'auto', bgcolor: '#fff', borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', paddingTop:8, }}>
+    <Box sx={{ p: 2, maxWidth: 1000, mx: 'auto', bgcolor: '#fff', borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', paddingTop: 8 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, px: 2, pt: 2 }}>
-          <Button
-            variant="outlined"
-            onClick={() => router.push('/receptionist')}
-            sx={{ mr: 2, color: '#1a237e', borderColor: '#1a237e', '&:hover': { borderColor: '#283593', backgroundColor: 'rgba(40, 53, 147, 0.04)' } }}
-          >
-            Back to Dashboard
-          </Button>
+        <Button
+          variant="outlined"
+          onClick={() => router.push('/receptionist')}
+          sx={{ mr: 2, color: '#1a237e', borderColor: '#1a237e', '&:hover': { borderColor: '#283593', backgroundColor: 'rgba(40, 53, 147, 0.04)' } }}
+        >
+          Back to Dashboard
+        </Button>
         <Typography variant="h6" sx={{ fontWeight: 500, color: '#1a237e' }}>
           Patient: {patient.name || `ID ${patient.id}`}
         </Typography>
@@ -266,10 +267,16 @@ export default function PatientDetails({ params }: { params: Promise<{ id: strin
                 <TableRow sx={{ '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.02)' } }}>
                   <TableCell sx={{ fontWeight: 500, color: '#1a237e', width: '30%' }}>Appointment Date</TableCell>
                   <TableCell sx={{ color: '#1a237e' }}>
-                    {new Date(patient.latestAppointment.dateTime).toLocaleDateString('en-US', {
+                    {new Date(patient.latestAppointment.dateTime).toLocaleString('en-US', {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
                       timeZone: 'Africa/Nairobi',
                     })}
                   </TableCell>
+                </TableRow>
+                <TableRow sx={{ '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.02)' } }}>
+                  <TableCell sx={{ fontWeight: 500, color: '#1a237e', width: '30%' }}>Status</TableCell>
+                  <TableCell sx={{ color: '#1a237e' }}>{patient.latestAppointment.status || 'N/A'}</TableCell>
                 </TableRow>
               </TableBody>
             </Table>
