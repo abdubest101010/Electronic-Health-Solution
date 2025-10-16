@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { use } from 'react';
 import {
@@ -64,11 +64,12 @@ export default function PatientDetails({ params }: { params: Promise<{ id: strin
   const [vitalsSaving, setVitalsSaving] = useState(false);
   const router = useRouter();
 
-  const fetchPatient = async () => {
+   // ✅ Wrap fetchPatient in useCallback
+   const fetchPatient = useCallback(async () => {
     try {
       setError(null);
       setLoading(true);
-      const res = await fetch(`/api/patients/${id}`);
+  const res = await fetch(`/api/patients/${id}`);
       if (!res.ok) throw new Error('Failed to load patient details');
       const data = await res.json();
       console.log('Patient data:', data);
@@ -79,11 +80,11 @@ export default function PatientDetails({ params }: { params: Promise<{ id: strin
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]); // ✅ Only depends on `id`
 
   useEffect(() => {
     fetchPatient();
-  }, [id, fetchPatient]);
+  }, [fetchPatient]); //
 
   const handleVitalsSubmit = async () => {
     const weight = parseFloat(vitalsInput.weight);

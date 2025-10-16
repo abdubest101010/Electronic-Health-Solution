@@ -32,6 +32,7 @@ export default function RegisterPatientForm({ onRegistrationComplete }: { onRegi
   const [formData, setFormData] = useState({
     name: '',
     lastName: '',
+    middleName: '',
     phone: '',
     address: '',
     gender: '',
@@ -48,8 +49,11 @@ export default function RegisterPatientForm({ onRegistrationComplete }: { onRegi
     if (!formData.name.trim()) {
       newErrors.name = 'Name is required';
     }
-    if (!formData.name.trim()) {
-      newErrors.name = 'Last name is required';
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = 'Last name is required';
+    }
+    if (!formData.middleName.trim()) {
+      newErrors.middleName = 'Middle name is required';
     }
     if (!formData.phone.trim()) {
       newErrors.phone = 'Phone number is required';
@@ -105,6 +109,7 @@ export default function RegisterPatientForm({ onRegistrationComplete }: { onRegi
         setTimeout(() => {
           setFormData({
             name: '',
+            middleName: '',
             lastName: '',
             phone: '',
             address: '',
@@ -231,6 +236,24 @@ export default function RegisterPatientForm({ onRegistrationComplete }: { onRegi
     />
     <TextField
       fullWidth
+      label="Middle Name *"
+      name="middleName"
+      value={formData.middleName}
+      onChange={handleChange}
+      error={!!errors.middleName}
+      helperText={errors.middleName}
+      required
+      sx={{
+        backgroundColor: '#fff',
+        borderRadius: 1,
+        '& .MuiOutlinedInput-root': {
+          borderRadius: 1,
+        },
+        flex: 1,
+      }}
+    />
+    <TextField
+      fullWidth
       label="Last Name *"
       name="lastName"
       value={formData.lastName}
@@ -247,6 +270,7 @@ export default function RegisterPatientForm({ onRegistrationComplete }: { onRegi
         flex: 1,
       }}
     />
+     
   </Box>
 
   <Box sx={{ display: 'flex', gap: 2 }}>

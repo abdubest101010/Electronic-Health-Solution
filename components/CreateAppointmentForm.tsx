@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 interface Patient {
   id: number;
@@ -15,39 +15,41 @@ export default function CreateAppointmentForm({ patientId }: { patientId: number
   const [isUpdate, setIsUpdate] = useState(false);
   const [appointmentId, setAppointmentId] = useState<string | null>(null); // ✅ string ID
 
-  const checkAppointment = async () => {
-    try {
-      const res = await fetch(`/api/appointments/check?patientId=${encodeURIComponent(patientId.toString())}`, {
+ // ✅ Wrap with useCallback + stable dependencies
+ const checkAppointment = useCallback(async () => {
+  try {
+    const res = await fetch(`/api/appointments/check?patientId=${encodeURIComponent(patientId.toString())}`, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to check appointment: HTTP ${res.status}`);
+    }
+    const { hasAppointment } = await res.json();
+    if (hasAppointment) {
+      const appointmentRes = await fetch(`/api/appointments/get?patientId=${encodeURIComponent(patientId.toString())}`, {
         headers: { 'Content-Type': 'application/json' },
       });
-      if (!res.ok) {
-        throw new Error(`Failed to check appointment: HTTP ${res.status}`);
-      }
-      const { hasAppointment } = await res.json();
-      if (hasAppointment) {
-        const appointmentRes = await fetch(`/api/appointments/get?patientId=${encodeURIComponent(patientId.toString())}`, {
-          headers: { 'Content-Type': 'application/json' },
+      if (appointmentRes.ok) {
+        const appointmentData = await appointmentRes.json();
+        setFormData({
+          patientId: patientId.toString(),
+          dateTime: appointmentData.dateTime ? new Date(appointmentData.dateTime).toISOString().slice(0, 16) : '',
         });
-        if (appointmentRes.ok) {
-          const appointmentData = await appointmentRes.json();
-          setFormData({
-            patientId: patientId.toString(),
-            dateTime: appointmentData.dateTime ? new Date(appointmentData.dateTime).toISOString().slice(0, 16) : '',
-          });
-          setIsUpdate(true);
-          setAppointmentId(appointmentData.id); // ✅ string
-        }
+        setIsUpdate(true);
+        setAppointmentId(appointmentData.id);
       }
-    } catch (err: any) {
-      console.error('💥 [CreateAppointmentForm] Error checking appointment:', err);
-      setError('Failed to check appointment status');
     }
-  };
-  useEffect(() => {
-    // ✅ Convert once to string and keep it
-    setFormData((prev) => ({ ...prev, patientId: patientId.toString() }));
-    checkAppointment();
-  }, [patientId, checkAppointment]);
+  } catch (err: any) {
+    console.error('💥 [CreateAppointmentForm] Error checking appointment:', err);
+    setError('Failed to check appointment status');
+  }
+}, [patientId]); // ✅ Only depends on patientId
+
+// ✅ Now useEffect only runs when patientId changes
+useEffect(() => {
+  setFormData((prev) => ({ ...prev, patientId: patientId.toString() }));
+  checkAppointment();
+}, [patientId, checkAppointment]); // ✅ checkAppointment is now stable
 
   
 
