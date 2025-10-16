@@ -1,10 +1,10 @@
-import { NextResponse, NextRequest } from 'next/server';
+import { NextRequest } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 import { VisitStatus } from '@prisma/client';
 
 interface LabTest {
-  labOrderId: string; // Changed to string
+  labOrderId: string;
   serviceName: string;
   orderedByName: string;
   doctorId: string;
@@ -16,32 +16,39 @@ interface LabTest {
 }
 
 interface LabPatient {
-  patientId: string; // Changed to string
+  patientId: string;
   patientName: string;
   doctorId?: string;
   doctorName?: string;
-  visitStatus?: VisitStatus | null; // Use VisitStatus enum
+  visitStatus?: VisitStatus | null;
   labTestsByDate: { date: string; labTests: LabTest[] }[];
 }
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  console.log('✅ [PatientLabOrdersById] Request received for patient:', params.id);
+// ✅ CORRECT SIGNATURE
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const { id: patientId } = params; // ✅ Destructure here
+
+  console.log('✅ [PatientLabOrdersById] Request received for patient:', patientId);
 
   const session = await auth();
   if (!session || session.user.role !== 'RECEPTIONIST') {
-    console.log('❌ [PatientLabOrdersById] Unauthorized access - Missing or invalid session:', session);
-    return NextResponse.json({ error: 'Unauthorized: Receptionist only' }, { status: 401 });
+    return new Response(JSON.stringify({ error: 'Unauthorized: Receptionist only' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
-  console.log('✅ [PatientLabOrdersById] User authenticated:', session.user.name, session.user.id);
 
-  const patientId = params.id;
   if (!patientId || typeof patientId !== 'string') {
-    console.warn('❌ [PatientLabOrdersById] Invalid patientId:', patientId);
-    return NextResponse.json({ error: 'Valid patientId (string) is required' }, { status: 400 });
+    return new Response(JSON.stringify({ error: 'Valid patientId (string) is required' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   try {
-    console.log(`🔍 [PatientLabOrdersById] Fetching lab orders for patient ${patientId}...`);
     const patient = await prisma.patient.findUnique({
       where: { id: patientId },
       include: {
@@ -59,18 +66,20 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     });
 
     if (!patient) {
-      console.warn(`❌ [PatientLabOrdersById] Patient not found: ${patientId}`);
-      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
+      return new Response(JSON.stringify({ error: 'Patient not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const labTestsByDate = patient.labOrders.reduce((acc, lo) => {
-      const date = lo.orderedAt.toISOString().split('T')[0]; // YYYY-MM-DD
-      let dateGroup = acc.find((d) => d.date === date);
-      if (!dateGroup) {
-        dateGroup = { date, labTests: [] };
-        acc.push(dateGroup);
+      const date = lo.orderedAt.toISOString().split('T')[0];
+      let group = acc.find((g) => g.date === date);
+      if (!group) {
+        group = { date, labTests: [] };
+        acc.push(group);
       }
-      dateGroup.labTests.push({
+      group.labTests.push({
         labOrderId: lo.id,
         serviceName: lo.service.name,
         orderedByName: lo.orderedBy.name,
@@ -89,19 +98,22 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       patientName: patient.name,
       doctorId: patient.doctor?.id || '',
       doctorName: patient.doctor?.name || 'Not assigned',
-      visitStatus: patient.visitStatus || null, // Handle nullable visitStatus
+      visitStatus: patient.visitStatus || null,
       labTestsByDate: labTestsByDate.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     };
 
-    console.log('✅ [PatientLabOrdersById] Formatted response:', result);
-    return NextResponse.json(result);
-  } catch (error: any) {
-    console.error('💥 [PatientLabOrdersById] Unexpected error:', {
-      message: error.message,
-      stack: error.stack,
-      ...(error.code && { prismaCode: error.code }),
-      ...(error.meta && { prismaMeta: error.meta }),
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
     });
-    return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
+  } catch (error: any) {
+    console.error('💥 [PatientLabOrdersById] Unexpected error:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal Server Error', details: error.message }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   }
 }

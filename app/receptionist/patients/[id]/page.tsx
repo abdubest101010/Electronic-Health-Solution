@@ -83,7 +83,7 @@ export default function PatientDetails({ params }: { params: Promise<{ id: strin
 
   useEffect(() => {
     fetchPatient();
-  }, [id]);
+  }, [id, fetchPatient]);
 
   const handleVitalsSubmit = async () => {
     const weight = parseFloat(vitalsInput.weight);

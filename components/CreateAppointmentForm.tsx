@@ -15,12 +15,6 @@ export default function CreateAppointmentForm({ patientId }: { patientId: number
   const [isUpdate, setIsUpdate] = useState(false);
   const [appointmentId, setAppointmentId] = useState<string | null>(null); // ✅ string ID
 
-  useEffect(() => {
-    // ✅ Convert once to string and keep it
-    setFormData((prev) => ({ ...prev, patientId: patientId.toString() }));
-    checkAppointment();
-  }, [patientId]);
-
   const checkAppointment = async () => {
     try {
       const res = await fetch(`/api/appointments/check?patientId=${encodeURIComponent(patientId.toString())}`, {
@@ -49,6 +43,13 @@ export default function CreateAppointmentForm({ patientId }: { patientId: number
       setError('Failed to check appointment status');
     }
   };
+  useEffect(() => {
+    // ✅ Convert once to string and keep it
+    setFormData((prev) => ({ ...prev, patientId: patientId.toString() }));
+    checkAppointment();
+  }, [patientId, checkAppointment]);
+
+  
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
