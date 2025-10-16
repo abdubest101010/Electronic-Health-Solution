@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 import { VisitStatus } from '@prisma/client';
@@ -24,31 +24,28 @@ interface LabPatient {
   labTestsByDate: { date: string; labTests: LabTest[] }[];
 }
 
-// ✅ CORRECT SIGNATURE
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  req: NextRequest, 
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id: patientId } = params; // ✅ Destructure here
-
+  // 🔥 FIXED: Await params FIRST, then log
+  const { id: patientId } = await params;
   console.log('✅ [PatientLabOrdersById] Request received for patient:', patientId);
 
   const session = await auth();
   if (!session || session.user.role !== 'RECEPTIONIST') {
-    return new Response(JSON.stringify({ error: 'Unauthorized: Receptionist only' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    console.log('❌ [PatientLabOrdersById] Unauthorized access - Missing or invalid session:', session);
+    return NextResponse.json({ error: 'Unauthorized: Receptionist only' }, { status: 401 });
   }
+  console.log('✅ [PatientLabOrdersById] User authenticated:', session.user.name, session.user.id);
 
   if (!patientId || typeof patientId !== 'string') {
-    return new Response(JSON.stringify({ error: 'Valid patientId (string) is required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    console.warn('❌ [PatientLabOrdersById] Invalid patientId:', patientId);
+    return NextResponse.json({ error: 'Valid patientId (string) is required' }, { status: 400 });
   }
 
   try {
+    console.log(`🔍 [PatientLabOrdersById] Fetching lab orders for patient ${patientId}...`);
     const patient = await prisma.patient.findUnique({
       where: { id: patientId },
       include: {
@@ -66,20 +63,18 @@ export async function GET(
     });
 
     if (!patient) {
-      return new Response(JSON.stringify({ error: 'Patient not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      console.warn(`❌ [PatientLabOrdersById] Patient not found: ${patientId}`);
+      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
     const labTestsByDate = patient.labOrders.reduce((acc, lo) => {
-      const date = lo.orderedAt.toISOString().split('T')[0];
-      let group = acc.find((g) => g.date === date);
-      if (!group) {
-        group = { date, labTests: [] };
-        acc.push(group);
+      const date = lo.orderedAt.toISOString().split('T')[0]; // YYYY-MM-DD
+      let dateGroup = acc.find((d) => d.date === date);
+      if (!dateGroup) {
+        dateGroup = { date, labTests: [] };
+        acc.push(dateGroup);
       }
-      group.labTests.push({
+      dateGroup.labTests.push({
         labOrderId: lo.id,
         serviceName: lo.service.name,
         orderedByName: lo.orderedBy.name,
@@ -102,18 +97,15 @@ export async function GET(
       labTestsByDate: labTestsByDate.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     };
 
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    console.log('✅ [PatientLabOrdersById] Formatted response:', result);
+    return NextResponse.json(result);
   } catch (error: any) {
-    console.error('💥 [PatientLabOrdersById] Unexpected error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal Server Error', details: error.message }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+    console.error('💥 [PatientLabOrdersById] Unexpected error:', {
+      message: error.message,
+      stack: error.stack,
+      ...(error.code && { prismaCode: error.code }),
+      ...(error.meta && { prismaMeta: error.meta }),
+    });
+    return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
   }
 }
