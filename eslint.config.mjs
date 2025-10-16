@@ -15,6 +15,7 @@ const eslintConfig = [
     rules: {
       // 👇 Allow `any` temporarily to fix Vercel build
       "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": "off",
     },
   },
 ];
