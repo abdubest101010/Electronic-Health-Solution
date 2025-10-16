@@ -7,17 +7,33 @@ export async function PUT(req: NextRequest) {
 
   const session = await auth();
   if (!session || session.user.role !== "DOCTOR") {
-    console.log("❌ [UpdateAppointment] Unauthorized access - Missing or invalid session:", session);
-    return NextResponse.json({ error: "Unauthorized: Doctor only" }, { status: 401 });
+    console.log(
+      "❌ [UpdateAppointment] Unauthorized access - Missing or invalid session:",
+      session
+    );
+    return NextResponse.json(
+      { error: "Unauthorized: Doctor only" },
+      { status: 401 }
+    );
   }
-  console.log("✅ [UpdateAppointment] User authenticated:", session.user.name, session.user.id);
+  console.log(
+    "✅ [UpdateAppointment] User authenticated:",
+    session.user.name,
+    session.user.id
+  );
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 
   if (!id || typeof id !== "string") {
-    console.warn("❌ [UpdateAppointment] Invalid or missing appointment ID:", id);
-    return NextResponse.json({ error: "Valid appointment ID (string) is required" }, { status: 400 });
+    console.warn(
+      "❌ [UpdateAppointment] Invalid or missing appointment ID:",
+      id
+    );
+    return NextResponse.json(
+      { error: "Valid appointment ID (string) is required" },
+      { status: 400 }
+    );
   }
 
   let data;
@@ -32,13 +48,25 @@ export async function PUT(req: NextRequest) {
   const { patientId, dateTime } = data;
 
   if (!patientId || typeof patientId !== "string") {
-    console.warn("❌ [UpdateAppointment] Invalid or missing patientId:", patientId);
-    return NextResponse.json({ error: "Valid patientId (string) is required" }, { status: 400 });
+    console.warn(
+      "❌ [UpdateAppointment] Invalid or missing patientId:",
+      patientId
+    );
+    return NextResponse.json(
+      { error: "Valid patientId (string) is required" },
+      { status: 400 }
+    );
   }
 
   if (!dateTime || isNaN(Date.parse(dateTime))) {
-    console.warn("❌ [UpdateAppointment] Invalid or missing dateTime:", dateTime);
-    return NextResponse.json({ error: "Valid dateTime is required" }, { status: 400 });
+    console.warn(
+      "❌ [UpdateAppointment] Invalid or missing dateTime:",
+      dateTime
+    );
+    return NextResponse.json(
+      { error: "Valid dateTime is required" },
+      { status: 400 }
+    );
   }
 
   try {
@@ -61,6 +89,9 @@ export async function PUT(req: NextRequest) {
       ...(error.code && { prismaCode: error.code }),
       ...(error.meta && { prismaMeta: error.meta }),
     });
-    return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error", details: error.message },
+      { status: 500 }
+    );
   }
 }

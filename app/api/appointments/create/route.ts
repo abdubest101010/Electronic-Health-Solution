@@ -7,10 +7,20 @@ export async function POST(req: NextRequest) {
 
   const session = await auth();
   if (!session || session.user.role !== "DOCTOR") {
-    console.log("❌ [CreateAppointment] Unauthorized access - Missing or invalid session:", session);
-    return NextResponse.json({ error: "Unauthorized: Doctor only" }, { status: 401 });
+    console.log(
+      "❌ [CreateAppointment] Unauthorized access - Missing or invalid session:",
+      session
+    );
+    return NextResponse.json(
+      { error: "Unauthorized: Doctor only" },
+      { status: 401 }
+    );
   }
-  console.log("✅ [CreateAppointment] User authenticated:", session.user.name, session.user.id);
+  console.log(
+    "✅ [CreateAppointment] User authenticated:",
+    session.user.name,
+    session.user.id
+  );
 
   let data;
   try {
@@ -24,17 +34,31 @@ export async function POST(req: NextRequest) {
   const { patientId, dateTime } = data;
 
   if (!patientId || typeof patientId !== "string") {
-    console.warn("❌ [CreateAppointment] Invalid or missing patientId:", patientId);
-    return NextResponse.json({ error: "Valid patientId (string) is required" }, { status: 400 });
+    console.warn(
+      "❌ [CreateAppointment] Invalid or missing patientId:",
+      patientId
+    );
+    return NextResponse.json(
+      { error: "Valid patientId (string) is required" },
+      { status: 400 }
+    );
   }
 
   if (!dateTime || isNaN(Date.parse(dateTime))) {
-    console.warn("❌ [CreateAppointment] Invalid or missing dateTime:", dateTime);
-    return NextResponse.json({ error: "Valid dateTime is required" }, { status: 400 });
+    console.warn(
+      "❌ [CreateAppointment] Invalid or missing dateTime:",
+      dateTime
+    );
+    return NextResponse.json(
+      { error: "Valid dateTime is required" },
+      { status: 400 }
+    );
   }
 
   try {
-    console.log("🔍 [CreateAppointment] Creating appointment and updating patient...");
+    console.log(
+      "🔍 [CreateAppointment] Creating appointment and updating patient..."
+    );
     const appointment = await prisma.$transaction([
       prisma.appointment.create({
         data: {
@@ -50,7 +74,10 @@ export async function POST(req: NextRequest) {
       }),
     ]);
 
-    console.log("✅ [CreateAppointment] Appointment created:", appointment[0].id);
+    console.log(
+      "✅ [CreateAppointment] Appointment created:",
+      appointment[0].id
+    );
     return NextResponse.json(appointment[0]);
   } catch (error: any) {
     console.error("💥 [CreateAppointment] Unexpected error:", {
@@ -59,6 +86,9 @@ export async function POST(req: NextRequest) {
       ...(error.code && { prismaCode: error.code }),
       ...(error.meta && { prismaMeta: error.meta }),
     });
-    return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error", details: error.message },
+      { status: 500 }
+    );
   }
 }

@@ -85,32 +85,33 @@ export default function Navbar() {
             <CircularProgress size={24} sx={{ color: 'white' }} />
           ) : session ? (
             <Button
-              variant="contained"
-              onClick={() => {
-                handleLinkClick('/login');
-                signOut({ callbackUrl: '/login' });
-              }}
-              disabled={loadingLink === '/login'}
-              sx={{
-                bgcolor: 'white',
-                color: '#1976d2',
-                '&:hover': { bgcolor: '#f5f5f5' },
-                textTransform: 'none',
-                fontSize: '0.97rem',
-                padding: '8px 16px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-              }}
-            >
-              {loadingLink === '/login' ? (
-                <CircularProgress size={16} sx={{ color: '#1976d2' }} />
-              ) : (
-                <>
-                <p>Welcome, {session.user.name}</p>
-                'Logout'
-              </>)}
-            </Button>
+  variant="contained"
+  onClick={() => {
+    handleLinkClick('/login');
+    signOut({ callbackUrl: '/login' });
+  }}
+  disabled={loadingLink === '/login'}
+  sx={{
+    bgcolor: 'white',
+    color: '#1976d2',
+    '&:hover': { bgcolor: '#f5f5f5' },
+    textTransform: 'none',
+    fontSize: '0.97rem',
+    padding: '8px 16px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 1,
+  }}
+>
+  {loadingLink === '/login' ? (
+    <CircularProgress size={16} sx={{ color: '#1976d2' }} />
+  ) : (
+    <>
+      <p>Welcome, {session.user.name}</p>
+      {'Logout'}
+    </>
+  )}
+</Button>
             
           ) : (
             <Button

@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import prisma from '@/lib/prisma';
-import { VisitStatus } from '@prisma/client';
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
+import prisma from "@/lib/prisma";
+import { VisitStatus } from "@prisma/client";
 
 interface VitalsJson {
   weight?: number | null;
@@ -30,16 +30,19 @@ interface PrescriptionJson {
 }
 
 export async function GET(req: NextRequest) {
-  console.log('✅ [AssignedToDoctor] Request received');
+  console.log("✅ [AssignedToDoctor] Request received");
 
   const session = await auth();
-  if (!session || session.user.role !== 'DOCTOR') {
-    console.log('❌ [AssignedToDoctor] Unauthorized access');
-    return NextResponse.json({ error: 'Unauthorized: Doctor only' }, { status: 401 });
+  if (!session || session.user.role !== "DOCTOR") {
+    console.log("❌ [AssignedToDoctor] Unauthorized access");
+    return NextResponse.json(
+      { error: "Unauthorized: Doctor only" },
+      { status: 401 }
+    );
   }
 
   const { searchParams } = new URL(req.url);
-  const searchTerm = searchParams.get('search')?.trim().toLowerCase() || '';
+  const searchTerm = searchParams.get("search")?.trim().toLowerCase() || "";
 
   try {
     const whereClause: any = {
@@ -61,7 +64,7 @@ export async function GET(req: NextRequest) {
 
     if (searchTerm) {
       whereClause.OR = [
-        { name: { contains: searchTerm, mode: 'insensitive' } },
+        { name: { contains: searchTerm, mode: "insensitive" } },
         { id: { equals: searchTerm } },
       ];
     }
@@ -78,7 +81,7 @@ export async function GET(req: NextRequest) {
         prescription: true,
         createdAt: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
     const formatted = patients.map((patient) => ({
@@ -98,13 +101,16 @@ export async function GET(req: NextRequest) {
       visitStatus: patient.visitStatus || null,
     }));
 
-    console.log('✅ [AssignedToDoctor] Formatted response:', formatted.length);
+    console.log("✅ [AssignedToDoctor] Formatted response:", formatted.length);
     return NextResponse.json(formatted);
   } catch (error: any) {
-    console.error('💥 [AssignedToDoctor] Unexpected error:', {
+    console.error("💥 [AssignedToDoctor] Unexpected error:", {
       message: error.message,
       stack: error.stack,
     });
-    return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error", details: error.message },
+      { status: 500 }
+    );
   }
 }

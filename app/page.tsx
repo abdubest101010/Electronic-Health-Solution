@@ -1,8 +1,6 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
-import LoginForm from '@/components/LoginForm';
 import { Box, Card, CardContent, Typography } from '@mui/material';
 
 export default function HomePage() {
@@ -34,7 +32,6 @@ export default function HomePage() {
             bgcolor: 'rgba(0, 0, 0, 0.4)',
             color: 'white',
             textAlign: 'center',
-            
           }}
         >
           <Box>

@@ -25,7 +25,7 @@ export default function TodayAppointments({ onPatientClick }: Props) {
           const data = await res.json();
           setAppointments(data);
         }
-      } catch (err) {
+      } catch {
         console.error('Failed to load appointments');
       }
     };

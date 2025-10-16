@@ -5,14 +5,26 @@ import prisma from "@/lib/prisma";
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session || session.user.role !== "DOCTOR") {
-    console.log("❌ [GetAppointment] Unauthorized access - Missing or invalid session:", session);
-    return NextResponse.json({ error: "Unauthorized: Doctor only" }, { status: 401 });
+    console.log(
+      "❌ [GetAppointment] Unauthorized access - Missing or invalid session:",
+      session
+    );
+    return NextResponse.json(
+      { error: "Unauthorized: Doctor only" },
+      { status: 401 }
+    );
   }
 
   const patientId = req.nextUrl.searchParams.get("patientId");
   if (!patientId || typeof patientId !== "string") {
-    console.warn("❌ [GetAppointment] Invalid or missing patientId:", patientId);
-    return NextResponse.json({ error: "Valid patientId (string) is required" }, { status: 400 });
+    console.warn(
+      "❌ [GetAppointment] Invalid or missing patientId:",
+      patientId
+    );
+    return NextResponse.json(
+      { error: "Valid patientId (string) is required" },
+      { status: 400 }
+    );
   }
 
   try {
@@ -26,11 +38,19 @@ export async function GET(req: NextRequest) {
     });
 
     if (!appointment) {
-      console.log("✅ [GetAppointment] No appointment found for patientId:", patientId);
+      console.log(
+        "✅ [GetAppointment] No appointment found for patientId:",
+        patientId
+      );
       return NextResponse.json({ hasAppointment: false });
     }
 
-    console.log("✅ [GetAppointment] Appointment found for patientId:", patientId, "appointmentId:", appointment.id);
+    console.log(
+      "✅ [GetAppointment] Appointment found for patientId:",
+      patientId,
+      "appointmentId:",
+      appointment.id
+    );
     return NextResponse.json({
       id: appointment.id,
       patientId: appointment.patientId,
@@ -42,6 +62,9 @@ export async function GET(req: NextRequest) {
       message: error.message,
       stack: error.stack,
     });
-    return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error", details: error.message },
+      { status: 500 }
+    );
   }
 }

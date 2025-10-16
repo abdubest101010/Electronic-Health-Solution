@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import prisma from '@/lib/prisma';
-import { VisitStatus } from '@prisma/client';
-import { startOfDay, subHours } from 'date-fns';
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
+import prisma from "@/lib/prisma";
+import { VisitStatus } from "@prisma/client";
+import { startOfDay, subHours } from "date-fns";
 
 interface PrescriptionJson {
   appointmentId?: string | null;
@@ -14,25 +14,34 @@ interface PrescriptionJson {
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session || session.user.role !== 'DOCTOR') {
-    console.log('❌ [Prescribe] Unauthorized access - Missing or invalid session:', session);
-    return NextResponse.json({ error: 'Unauthorized: Doctor only' }, { status: 401 });
+  if (!session || session.user.role !== "DOCTOR") {
+    console.log(
+      "❌ [Prescribe] Unauthorized access - Missing or invalid session:",
+      session
+    );
+    return NextResponse.json(
+      { error: "Unauthorized: Doctor only" },
+      { status: 401 }
+    );
   }
 
   let data;
   try {
     data = await req.json();
-    console.log('📥 [Prescribe] Parsed JSON payload:', data);
+    console.log("📥 [Prescribe] Parsed JSON payload:", data);
   } catch (err) {
-    console.error('❌ [Prescribe] Failed to parse JSON:', err);
-    return NextResponse.json({ error: 'Invalid JSON format' }, { status: 400 });
+    console.error("❌ [Prescribe] Failed to parse JSON:", err);
+    return NextResponse.json({ error: "Invalid JSON format" }, { status: 400 });
   }
 
   const { patientId, medicines, recommendations, appointmentId } = data;
 
-  if (!patientId || typeof patientId !== 'string') {
-    console.warn('❌ [Prescribe] Invalid or missing patientId:', patientId);
-    return NextResponse.json({ error: 'Valid patientId (string) is required' }, { status: 400 });
+  if (!patientId || typeof patientId !== "string") {
+    console.warn("❌ [Prescribe] Invalid or missing patientId:", patientId);
+    return NextResponse.json(
+      { error: "Valid patientId (string) is required" },
+      { status: 400 }
+    );
   }
 
   try {
@@ -41,8 +50,8 @@ export async function POST(req: NextRequest) {
     });
 
     if (!patient) {
-      console.warn('❌ [Prescribe] Patient not found:', patientId);
-      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
+      console.warn("❌ [Prescribe] Patient not found:", patientId);
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
     }
 
     if (appointmentId) {
@@ -56,8 +65,11 @@ export async function POST(req: NextRequest) {
       });
 
       if (!appointment) {
-        console.warn('❌ [Prescribe] Invalid appointmentId:', appointmentId);
-        return NextResponse.json({ error: 'Valid appointmentId is required' }, { status: 400 });
+        console.warn("❌ [Prescribe] Invalid appointmentId:", appointmentId);
+        return NextResponse.json(
+          { error: "Valid appointmentId is required" },
+          { status: 400 }
+        );
       }
     }
 
@@ -69,8 +81,13 @@ export async function POST(req: NextRequest) {
     };
 
     if (!newPrescription.medicines && !newPrescription.recommendations) {
-      console.warn('❌ [Prescribe] No valid medicines or recommendations provided');
-      return NextResponse.json({ error: 'At least one of medicines or recommendations is required' }, { status: 400 });
+      console.warn(
+        "❌ [Prescribe] No valid medicines or recommendations provided"
+      );
+      return NextResponse.json(
+        { error: "At least one of medicines or recommendations is required" },
+        { status: 400 }
+      );
     }
 
     const updatedPatient = await prisma.patient.update({
@@ -81,13 +98,16 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    console.log('✅ [Prescribe] Prescription set for patientId:', patientId);
+    console.log("✅ [Prescribe] Prescription set for patientId:", patientId);
     return NextResponse.json(updatedPatient);
   } catch (error: any) {
-    console.error('💥 [Prescribe] Error saving prescription:', {
+    console.error("💥 [Prescribe] Error saving prescription:", {
       message: error.message,
       stack: error.stack,
     });
-    return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error", details: error.message },
+      { status: 500 }
+    );
   }
 }
