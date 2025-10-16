@@ -12,16 +12,16 @@ export async function GET(req: NextRequest, { params }: { params: { patientId: s
   }
   console.log('✅ [PaidLabOrdersByPatient] User authenticated:', session.user.name, session.user.id);
 
-  const patientId = parseInt(params.patientId);
-  if (isNaN(patientId)) {
+  const patientId = params.patientId;
+  if (!patientId || typeof patientId !== 'string') {
     console.warn('❌ [PaidLabOrdersByPatient] Invalid patientId:', params.patientId);
-    return NextResponse.json({ error: 'Valid patientId is required' }, { status: 400 });
+    return NextResponse.json({ error: 'Valid patientId (string) is required' }, { status: 400 });
   }
 
   try {
     console.log(`🔍 [PaidLabOrdersByPatient] Fetching paid lab orders for patient ${patientId}...`);
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today (Africa/Nairobi)
+    today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
 

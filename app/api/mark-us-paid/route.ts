@@ -1,7 +1,7 @@
-// app/api/receptionist/mark-lab-paid/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { LabOrderStatus, VisitStatus } from '@prisma/client';
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -11,41 +11,36 @@ export async function POST(req: NextRequest) {
 
   const { labOrderId } = await req.json();
 
-  if (!labOrderId) {
-    return NextResponse.json({ error: 'Lab order ID is required' }, { status: 400 });
+  if (!labOrderId || typeof labOrderId !== 'string') {
+    return NextResponse.json({ error: 'Valid labOrderId (string) is required' }, { status: 400 });
   }
 
   try {
     const labOrder = await prisma.labOrder.findUnique({
       where: { id: labOrderId },
-      include: { appointment: true },
     });
 
     if (!labOrder) {
       return NextResponse.json({ error: 'Lab order not found' }, { status: 404 });
     }
 
-    // Ensure it's not already paid
-    if (labOrder.status === 'PAID') {
+    if (labOrder.status === LabOrderStatus.PAID) {
       return NextResponse.json({ error: 'Lab test already paid' }, { status: 400 });
     }
 
-    // Update lab order
-    await prisma.labOrder.update({
-      where: { id: labOrderId },
-      data: {
-        status: 'PAID',
-        paidAt: new Date(),
-      },
-    });
-
-    // Optional: Update appointment status
-    if (labOrder.appointmentId) {
-      await prisma.appointment.update({
-        where: { id: labOrder.appointmentId },
-        data: { visitStatus: 'PAID_FOR_LAB' },
-      });
-    }
+    await prisma.$transaction([
+      prisma.labOrder.update({
+        where: { id: labOrderId },
+        data: {
+          status: LabOrderStatus.PAID,
+          paidAt: new Date(),
+        },
+      }),
+      prisma.patient.update({
+        where: { id: labOrder.patientId },
+        data: { visitStatus: VisitStatus.PAID_FOR_LAB },
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,

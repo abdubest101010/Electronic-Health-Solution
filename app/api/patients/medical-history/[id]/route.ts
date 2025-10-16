@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 
+interface HistoryJson {
+  [key: string]: any; // Index signature for InputJsonValue
+}
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params; // Await params to unwrap the Promise
+  const { id } = await params;
   console.log('✅ [MedicalHistoryGET] Request received for patientId:', id);
 
   const session = await auth();
@@ -13,8 +17,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
   console.log('✅ [MedicalHistoryGET] User authenticated:', session.user.name, session.user.id);
 
-  const patientId = parseInt(id);
-  if (isNaN(patientId)) {
+  if (!id || typeof id !== 'string') {
     console.warn('❌ [MedicalHistoryGET] Invalid patient ID:', id);
     return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
   }
@@ -22,17 +25,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     console.log('🔍 [MedicalHistoryGET] Fetching patient history...');
     const patient = await prisma.patient.findUnique({
-      where: { id: patientId },
+      where: { id },
       select: { history: true },
     });
 
     if (!patient) {
-      console.warn('❌ [MedicalHistoryGET] Patient not found:', patientId);
+      console.warn('❌ [MedicalHistoryGET] Patient not found:', id);
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
     console.log('✅ [MedicalHistoryGET] Fetched history:', patient.history || 'None');
-    return NextResponse.json({ history: patient.history || '' });
+    return NextResponse.json({ history: patient.history ? (patient.history as unknown as HistoryJson) : null });
   } catch (error: any) {
     console.error('💥 [MedicalHistoryGET] Unexpected error:', {
       message: error.message,
@@ -45,7 +48,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params; // Await params to unwrap the Promise
+  const { id } = await params;
   console.log('✅ [MedicalHistoryPUT] Request received for patientId:', id);
 
   const session = await auth();
@@ -55,8 +58,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
   console.log('✅ [MedicalHistoryPUT] User authenticated:', session.user.name, session.user.id);
 
-  const patientId = parseInt(id);
-  if (isNaN(patientId)) {
+  if (!id || typeof id !== 'string') {
     console.warn('❌ [MedicalHistoryPUT] Invalid patient ID:', id);
     return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
   }
@@ -71,19 +73,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const { history } = data;
-  if (typeof history !== 'string') {
+  if (!history || (typeof history !== 'string' && typeof history !== 'object')) {
     console.warn('❌ [MedicalHistoryPUT] Invalid history format:', history);
-    return NextResponse.json({ error: 'History must be a string' }, { status: 400 });
+    return NextResponse.json({ error: 'History must be a string or JSON object' }, { status: 400 });
   }
 
   try {
     console.log('🔄 [MedicalHistoryPUT] Updating patient history...');
     const updatedPatient = await prisma.patient.update({
-      where: { id: patientId },
-      data: { history },
+      where: { id },
+      data: { history: history as HistoryJson },
     });
 
-    console.log('✅ [MedicalHistoryPUT] History updated for patient:', patientId);
+    console.log('✅ [MedicalHistoryPUT] History updated for patient:', id);
     return NextResponse.json({
       success: true,
       message: 'Medical history updated successfully',

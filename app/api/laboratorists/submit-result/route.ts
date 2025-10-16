@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { LabOrderStatus, VisitStatus } from '@prisma/client';
 
 export async function POST(req: NextRequest) {
   console.log('✅ [SubmitLabResult] Request received');
@@ -14,10 +15,10 @@ export async function POST(req: NextRequest) {
 
   const { labOrderId, result } = await req.json();
 
-  if (!labOrderId || !result || typeof result !== 'string' || result.trim().length === 0 || result.length > 1000) {
+  if (!labOrderId || typeof labOrderId !== 'string' || !result || typeof result !== 'string' || result.trim().length === 0 || result.length > 1000) {
     console.warn('❌ [SubmitLabResult] Invalid input:', { labOrderId, result });
     return NextResponse.json(
-      { error: 'Valid labOrderId and result (non-empty string, max 1000 chars) are required' },
+      { error: 'Valid labOrderId (string) and result (non-empty string, max 1000 chars) are required' },
       { status: 400 }
     );
   }
@@ -26,13 +27,6 @@ export async function POST(req: NextRequest) {
     console.log(`🔍 [SubmitLabResult] Submitting result for lab order ${labOrderId}...`);
     const labOrder = await prisma.labOrder.findUnique({
       where: { id: labOrderId },
-      include: {
-        patient: {
-          include: {
-            labOrders: true,
-          },
-        },
-      },
     });
 
     if (!labOrder) {
@@ -45,35 +39,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden: Not assigned to you' }, { status: 403 });
     }
 
-    if (labOrder.status !== 'PAID') {
+    if (labOrder.status !== LabOrderStatus.PAID) {
       console.warn(`❌ [SubmitLabResult] Lab order ${labOrderId} status is ${labOrder.status}, expected PAID`);
       return NextResponse.json({ error: 'Only paid tests can be processed' }, { status: 400 });
     }
 
-    // Update lab order
-    await prisma.labOrder.update({
-      where: { id: labOrderId },
-      data: {
-        result: result.trim(),
-        status: 'COMPLETED',
-        completedAt: new Date(),
-      },
+    // Determine new visitStatus outside the update data
+    const pendingLabOrders = await prisma.labOrder.findMany({
+      where: { patientId: labOrder.patientId, status: { not: LabOrderStatus.COMPLETED } },
     });
+    const newVisitStatus = pendingLabOrders.length === 0 ? VisitStatus.LAB_COMPLETED : undefined;
 
-    // Update patient visitStatus if all lab orders for the appointment are completed
-    const allLabOrders = await prisma.labOrder.findMany({
-      where: { patientId: labOrder.patientId },
-    });
-
-    const allCompleted = allLabOrders.every((lo) => lo.status === 'COMPLETED');
-
-    if (allCompleted) {
-      await prisma.patient.update({
+    await prisma.$transaction([
+      prisma.labOrder.update({
+        where: { id: labOrderId },
+        data: {
+          result: result.trim(),
+          status: LabOrderStatus.COMPLETED,
+          completedAt: new Date(),
+        },
+      }),
+      prisma.patient.update({
         where: { id: labOrder.patientId },
-        data: { visitStatus: 'LAB_COMPLETED' },
-      });
-      // console.log(`✅ [SubmitLabResult] Updated visitStatus to LAB_COMPLETED for appointment ${labOrder.[]}`);
-    }
+        data: {
+          visitStatus: newVisitStatus, // Pass the determined value directly
+        },
+      }),
+    ]);
 
     console.log('✅ [SubmitLabResult] Lab result submitted:', labOrderId);
     return NextResponse.json({
@@ -83,7 +75,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('💥 [SubmitLabResult] Unexpected error:', {
       message: error.message,
-      stack: error.message,
+      stack: error.stack,
       ...(error.code && { prismaCode: error.code }),
       ...(error.meta && { prismaMeta: error.meta }),
     });

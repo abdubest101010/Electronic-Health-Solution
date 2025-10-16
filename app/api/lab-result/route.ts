@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
@@ -13,14 +12,14 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const patientId = searchParams.get('patientId');
 
-  if (!patientId || isNaN(parseInt(patientId))) {
+  if (!patientId || typeof patientId !== 'string') {
     console.warn('❌ [LabResults GET] Invalid or missing patientId:', patientId);
-    return NextResponse.json({ error: 'Valid patientId is required' }, { status: 400 });
+    return NextResponse.json({ error: 'Valid patientId (string) is required' }, { status: 400 });
   }
 
   try {
     const whereClause: any = {
-      patientId: parseInt(patientId),
+      patientId: patientId,
       status: 'COMPLETED',
     };
 

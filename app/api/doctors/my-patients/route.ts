@@ -1,7 +1,7 @@
-// app/api/doctors/my-patients/route.ts
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { VisitStatus } from '@prisma/client';
 
 export async function GET() {
   const session = await auth();
@@ -14,8 +14,15 @@ export async function GET() {
     const appointments = await prisma.appointment.findMany({
       where: {
         doctorId: session.user.id,
-        visitStatus: {
-          in: ['ASSIGNED_TO_DOCTOR', 'EXAMINED', 'LAB_ORDERED', 'LAB_COMPLETED'],
+        patient: {
+          visitStatus: {
+            in: [
+              VisitStatus.ASSIGNED_TO_DOCTOR,
+              VisitStatus.EXAMINED,
+              VisitStatus.LAB_ORDERED,
+              VisitStatus.LAB_COMPLETED,
+            ],
+          },
         },
       },
       include: {

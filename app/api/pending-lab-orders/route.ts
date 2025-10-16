@@ -1,7 +1,7 @@
-// app/api/receptionist/todays-lab-patients/route.ts
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { VisitStatus } from '@prisma/client';
 
 export async function GET() {
   const session = await auth();
@@ -15,20 +15,15 @@ export async function GET() {
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   try {
-    const patients = await prisma.appointment.findMany({
+    const patients = await prisma.patient.findMany({
       where: {
-        visitStatus: 'ASSIGNED_TO_LAB',
+        visitStatus: VisitStatus.ASSIGNED_TO_LAB,
         createdAt: {
           gte: today,
           lt: tomorrow,
         },
       },
       include: {
-        patient: {
-          select: {
-            name: true,
-          },
-        },
         labOrders: {
           include: {
             service: {
@@ -48,18 +43,17 @@ export async function GET() {
       orderBy: { createdAt: 'asc' },
     });
 
-    // Format response
-    const result = patients.map((apt) => ({
-      appointmentId: apt.id,
-      patientName: apt.patient.name,
-      labTests: apt.labOrders.map((lo) => ({
+    const result = patients.map((patient) => ({
+      patientId: patient.id,
+      patientName: patient.name,
+      labTests: patient.labOrders.map((lo) => ({
         labOrderId: lo.id,
         serviceName: lo.service.name,
         orderedById: lo.orderedById,
         laboratoristName: lo.laboratorist?.name || 'Not assigned',
         status: lo.status,
       })),
-      assignedAt: apt.createdAt,
+      assignedAt: patient.createdAt,
     }));
 
     return NextResponse.json(result);

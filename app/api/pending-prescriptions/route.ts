@@ -1,21 +1,21 @@
-// app/api/pending-prescriptions/route.ts (for doctor prescribe)
 import { NextResponse } from 'next/server';
-import {auth} from '@/auth'; // use the new helper from your auth.ts
+import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { VisitStatus } from '@prisma/client';
 
 export async function GET() {
-const session = await auth(); // instead of getServerSession(authOptions)
-    if (!session || session.user.role !== 'DOCTOR') {
+  const session = await auth();
+  if (!session || session.user.role !== 'DOCTOR') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const appointments = await prisma.appointment.findMany({
-    where: { 
-      doctorId: session.user.id, 
-      visitStatus: { in: ['EXAMINED', 'LAB_COMPLETED'] } 
+  const patients = await prisma.patient.findMany({
+    where: {
+      doctorId: session.user.id,
+      visitStatus: { in: [VisitStatus.EXAMINED, VisitStatus.LAB_COMPLETED] },
     },
-    include: { patient: { select: { name: true } } },
+    select: { id: true, name: true },
   });
 
-  return NextResponse.json(appointments);
+  return NextResponse.json(patients);
 }

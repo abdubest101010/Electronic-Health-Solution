@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { VisitStatus } from '@prisma/client';
 
 // Reuse your types
 interface VitalsJson {
@@ -9,21 +10,24 @@ interface VitalsJson {
   bpDiastolic?: number | null;
   measuredById?: string | null;
   measuredAt?: string | null;
+  [key: string]: any; // Index signature for InputJsonValue
 }
 
 interface ExaminationJson {
-  appointmentId?: number | null;
+  appointmentId?: string | null;
   complaints?: string | null;
   diagnosis?: string | null;
-  visitStatus?: string | null;
+  visitStatus?: VisitStatus | null;
   createdAt?: string | null;
+  [key: string]: any; // Index signature for InputJsonValue
 }
 
 interface PrescriptionJson {
-  appointmentId?: number | null;
+  appointmentId?: string | null;
   medicines?: string | null;
   recommendations?: string | null;
   createdAt?: string | null;
+  [key: string]: any; // Index signature for InputJsonValue
 }
 
 export async function GET(req: NextRequest) {
@@ -42,18 +46,25 @@ export async function GET(req: NextRequest) {
     const whereClause: any = {
       doctorId: session.user.id,
       visitStatus: {
-        in: ['REGISTERED', 'VITALS_TAKEN', 'ASSIGNED_TO_DOCTOR', 'EXAMINED', 'LAB_ORDERED', 'PAID_FOR_LAB', 'ASSIGNED_TO_LAB', 'LAB_COMPLETED', 'FINALIZED'],
+        in: [
+          VisitStatus.REGISTERED,
+          VisitStatus.VITALS_TAKEN,
+          VisitStatus.ASSIGNED_TO_DOCTOR,
+          VisitStatus.EXAMINED,
+          VisitStatus.LAB_ORDERED,
+          VisitStatus.PAID_FOR_LAB,
+          VisitStatus.ASSIGNED_TO_LAB,
+          VisitStatus.LAB_COMPLETED,
+          VisitStatus.FINALIZED,
+        ],
       },
     };
 
     if (searchTerm) {
       whereClause.OR = [
-        { name: { contains: searchTerm } }, // Removed mode: 'insensitive'
+        { name: { contains: searchTerm, mode: 'insensitive' } },
+        { id: { equals: searchTerm } },
       ];
-      const parsedId = parseInt(searchTerm);
-      if (!isNaN(parsedId)) {
-        whereClause.OR.push({ id: { equals: parsedId } });
-      }
     }
 
     const patients = await prisma.patient.findMany({
@@ -69,16 +80,14 @@ export async function GET(req: NextRequest) {
         assignedAt: true,
       },
       orderBy: {
-        assignedAt: { sort: 'desc', nulls: 'last' }, // Sort by assignedAt, nulls last
+        assignedAt: 'desc',
       },
     });
 
     const formatted = patients.map((patient) => {
       const vitals = patient.vitals as VitalsJson | null;
-      const examinations = Array.isArray(patient.examination) ? patient.examination as ExaminationJson[] : [];
-      const prescriptions = Array.isArray(patient.prescription) ? patient.prescription as PrescriptionJson[] : [];
-      const latestExamination = examinations[examinations.length - 1];
-      const latestPrescription = prescriptions[prescriptions.length - 1];
+      const examination = patient.examination as ExaminationJson | null;
+      const prescription = patient.prescription as PrescriptionJson | null;
 
       return {
         id: patient.id,
@@ -92,14 +101,14 @@ export async function GET(req: NextRequest) {
           bpSystolic: vitals?.bpSystolic ?? null,
           bpDiastolic: vitals?.bpDiastolic ?? null,
         },
-        examination: latestExamination
+        examination: examination
           ? {
-              id: latestExamination.appointmentId || 0,
-              complaints: latestExamination.complaints || '',
-              diagnosis: latestExamination.diagnosis || '',
-              visitStatus: latestExamination.visitStatus || patient.visitStatus || '',
-              medicines: latestPrescription?.medicines || '',
-              recommendations: latestPrescription?.recommendations || '',
+              id: examination.appointmentId || null,
+              complaints: examination.complaints || '',
+              diagnosis: examination.diagnosis || '',
+              visitStatus: examination.visitStatus || patient.visitStatus || '',
+              medicines: prescription?.medicines || '',
+              recommendations: prescription?.recommendations || '',
             }
           : null,
         visitStatus: patient.visitStatus,

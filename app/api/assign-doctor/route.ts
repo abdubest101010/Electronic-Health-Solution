@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { VisitStatus } from '@prisma/client';
 
 export async function POST(req: NextRequest) {
   console.log('✅ [AssignDoctor] Request received');
@@ -25,9 +26,9 @@ export async function POST(req: NextRequest) {
   const { patientId, doctorId } = data;
 
   // Validate input
-  if (!patientId || isNaN(parseInt(patientId))) {
+  if (!patientId || typeof patientId !== 'string') {
     console.warn('❌ [AssignDoctor] Invalid or missing patientId:', patientId);
-    return NextResponse.json({ error: 'Valid patientId (number) is required' }, { status: 400 });
+    return NextResponse.json({ error: 'Valid patientId (string) is required' }, { status: 400 });
   }
 
   if (!doctorId || typeof doctorId !== 'string') {
@@ -35,16 +36,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Valid doctorId (string) is required' }, { status: 400 });
   }
 
-  const parsedPatientId = parseInt(patientId);
-
   try {
     console.log('🔍 [AssignDoctor] Checking patient existence...');
     const patient = await prisma.patient.findUnique({
-      where: { id: parsedPatientId },
+      where: { id: patientId },
     });
 
     if (!patient) {
-      console.warn(`❌ [AssignDoctor] Patient with id ${parsedPatientId} not found`);
+      console.warn(`❌ [AssignDoctor] Patient with id ${patientId} not found`);
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
     console.log('✅ [AssignDoctor] Found patient:', patient.name, patient.id);
@@ -67,11 +66,11 @@ export async function POST(req: NextRequest) {
 
     console.log('🔄 [AssignDoctor] Updating patient with doctorId and visitStatus...');
     const updatedPatient = await prisma.patient.update({
-      where: { id: parsedPatientId },
+      where: { id: patientId },
       data: {
         doctorId: doctorId,
-        visitStatus: 'ASSIGNED_TO_DOCTOR',
-        assignedAt: new Date(), 
+        visitStatus: VisitStatus.ASSIGNED_TO_DOCTOR,
+        assignedAt: new Date(),
       },
     });
 

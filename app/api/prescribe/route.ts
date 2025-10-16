@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { VisitStatus } from '@prisma/client';
 import { startOfDay, subHours } from 'date-fns';
+
+interface PrescriptionJson {
+  appointmentId?: string | null;
+  medicines?: string | null;
+  recommendations?: string | null;
+  createdAt?: string | null;
+  [key: string]: any; // Index signature for InputJsonValue
+}
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -21,52 +30,59 @@ export async function POST(req: NextRequest) {
 
   const { patientId, medicines, recommendations, appointmentId } = data;
 
-  if (!patientId || isNaN(parseInt(patientId))) {
+  if (!patientId || typeof patientId !== 'string') {
     console.warn('❌ [Prescribe] Invalid or missing patientId:', patientId);
-    return NextResponse.json({ error: 'Valid patientId is required' }, { status: 400 });
+    return NextResponse.json({ error: 'Valid patientId (string) is required' }, { status: 400 });
   }
 
   try {
     const patient = await prisma.patient.findUnique({
-      where: { id: parseInt(patientId) },
-      select: { prescription: true },
+      where: { id: patientId },
     });
 
-    const appointment = await prisma.appointment.findFirst({
-      where: { 
-        patientId: parseInt(patientId),
-        doctorId: session.user.id,
-        dateTime: { gte: subHours(startOfDay(new Date()), 3) }, // Adjust for EAT
-      },
-      select: { id: true },
-    });
-
-    if (!appointment && appointmentId) {
-      console.warn('❌ [Prescribe] Invalid appointmentId:', appointmentId);
-      return NextResponse.json({ error: 'Valid appointmentId is required' }, { status: 400 });
+    if (!patient) {
+      console.warn('❌ [Prescribe] Patient not found:', patientId);
+      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
-    const existingPrescriptions = Array.isArray(patient?.prescription) ? patient.prescription : [];
+    if (appointmentId) {
+      const appointment = await prisma.appointment.findFirst({
+        where: {
+          id: appointmentId,
+          patientId,
+          doctorId: session.user.id,
+          dateTime: { gte: subHours(startOfDay(new Date()), 3) },
+        },
+      });
 
-    const newPrescription = {
-      appointmentId: appointment ? appointment.id : null,
-      medicines: medicines || null,
-      recommendations: recommendations || null,
+      if (!appointment) {
+        console.warn('❌ [Prescribe] Invalid appointmentId:', appointmentId);
+        return NextResponse.json({ error: 'Valid appointmentId is required' }, { status: 400 });
+      }
+    }
+
+    const newPrescription: PrescriptionJson = {
+      appointmentId: appointmentId || null,
+      medicines: medicines?.trim() || null,
+      recommendations: recommendations?.trim() || null,
       createdAt: new Date().toISOString(),
     };
 
-    const updatedPatient = await prisma.$transaction([
-      prisma.patient.update({
-        where: { id: parseInt(patientId) },
-        data: {
-          prescription: [...existingPrescriptions, newPrescription],
-          visitStatus: 'FINALIZED',
-        },
-      }),
-    ]);
+    if (!newPrescription.medicines && !newPrescription.recommendations) {
+      console.warn('❌ [Prescribe] No valid medicines or recommendations provided');
+      return NextResponse.json({ error: 'At least one of medicines or recommendations is required' }, { status: 400 });
+    }
 
-    console.log('✅ [Prescribe] Prescription appended for patientId:', patientId);
-    return NextResponse.json(updatedPatient[0]);
+    const updatedPatient = await prisma.patient.update({
+      where: { id: patientId },
+      data: {
+        prescription: newPrescription,
+        visitStatus: VisitStatus.FINALIZED,
+      },
+    });
+
+    console.log('✅ [Prescribe] Prescription set for patientId:', patientId);
+    return NextResponse.json(updatedPatient);
   } catch (error: any) {
     console.error('💥 [Prescribe] Error saving prescription:', {
       message: error.message,

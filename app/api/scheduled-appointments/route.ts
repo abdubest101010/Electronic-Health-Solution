@@ -1,18 +1,18 @@
-// app/api/scheduled-appointments/route.ts (for receptionist to update vitals on scheduled appointments)
 import { NextResponse } from 'next/server';
-import {auth} from '@/auth'; // use the new helper from your auth.ts
+import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { VisitStatus } from '@prisma/client';
 
 export async function GET() {
-const session = await auth(); // instead of getServerSession(authOptions)
-    if (!session || session.user.role !== 'RECEPTIONIST') {
+  const session = await auth();
+  if (!session || session.user.role !== 'RECEPTIONIST') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const appointments = await prisma.appointment.findMany({
-    where: { visitStatus: 'REGISTERED' },
-    include: { patient: { select: { name: true } } },
+  const patients = await prisma.patient.findMany({
+    where: { visitStatus: VisitStatus.REGISTERED },
+    select: { id: true, name: true },
   });
 
-  return NextResponse.json(appointments);
+  return NextResponse.json(patients);
 }

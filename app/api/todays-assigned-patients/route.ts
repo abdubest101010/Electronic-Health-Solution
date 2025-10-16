@@ -1,29 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { VisitStatus } from '@prisma/client';
 
-// Reuse your types
 interface VitalsJson {
   weight?: number | null;
   bpSystolic?: number | null;
   bpDiastolic?: number | null;
   measuredById?: string | null;
   measuredAt?: string | null;
+  [key: string]: any; // Index signature for InputJsonValue
 }
 
 interface ExaminationJson {
-  appointmentId?: number | null;
+  appointmentId?: string | null;
   complaints?: string | null;
   diagnosis?: string | null;
-  visitStatus?: string | null;
+  visitStatus?: VisitStatus | null;
   createdAt?: string | null;
+  [key: string]: any; // Index signature for InputJsonValue
 }
 
 interface PrescriptionJson {
-  appointmentId?: number | null;
+  appointmentId?: string | null;
   medicines?: string | null;
   recommendations?: string | null;
   createdAt?: string | null;
+  [key: string]: any; // Index signature for InputJsonValue
 }
 
 export async function GET(req: NextRequest) {
@@ -35,14 +38,36 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized: Doctor only' }, { status: 401 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const searchTerm = searchParams.get('search')?.trim().toLowerCase() || '';
+
   try {
-    const patients = await prisma.patient.findMany({
-      where: {
-        doctorId: session.user.id,
-        visitStatus: {
-          in: ['REGISTERED', 'VITALS_TAKEN', 'ASSIGNED_TO_DOCTOR', 'EXAMINED', 'LAB_ORDERED', 'PAID_FOR_LAB', 'ASSIGNED_TO_LAB', 'LAB_COMPLETED', 'FINALIZED'],
-        },
+    const whereClause: any = {
+      doctorId: session.user.id,
+      visitStatus: {
+        in: [
+          VisitStatus.REGISTERED,
+          VisitStatus.VITALS_TAKEN,
+          VisitStatus.ASSIGNED_TO_DOCTOR,
+          VisitStatus.EXAMINED,
+          VisitStatus.LAB_ORDERED,
+          VisitStatus.PAID_FOR_LAB,
+          VisitStatus.ASSIGNED_TO_LAB,
+          VisitStatus.LAB_COMPLETED,
+          VisitStatus.FINALIZED,
+        ],
       },
+    };
+
+    if (searchTerm) {
+      whereClause.OR = [
+        { name: { contains: searchTerm, mode: 'insensitive' } },
+        { id: { equals: searchTerm } },
+      ];
+    }
+
+    const patients = await prisma.patient.findMany({
+      where: whereClause,
       select: {
         id: true,
         name: true,
@@ -51,58 +76,27 @@ export async function GET(req: NextRequest) {
         vitals: true,
         examination: true,
         prescription: true,
-        appointments: {
-          where: { doctorId: session.user.id },
-          orderBy: { dateTime: 'desc' },
-          take: 1,
-          select: {
-            id: true,
-            dateTime: true,
-          },
-        },
+        createdAt: true,
       },
-      orderBy: { name: 'asc' },
+      orderBy: { createdAt: 'desc' },
     });
 
-    const formatted = patients.map((patient) => {
-      const latestAppointment = patient.appointments[0];
-      const vitals = patient.vitals as VitalsJson | null;
-      const examinations = Array.isArray(patient.examination) ? patient.examination as ExaminationJson[] : [];
-      const prescriptions = Array.isArray(patient.prescription) ? patient.prescription as PrescriptionJson[] : [];
-      const latestExamination = examinations.find(exam => exam.appointmentId === latestAppointment?.id) || examinations[examinations.length - 1];
-      const latestPrescription = prescriptions.find(pres => pres.appointmentId === latestAppointment?.id) || prescriptions[prescriptions.length - 1];
-
-      return {
-        id: latestAppointment?.id || 0,
-        patient: {
-          id: patient.id,
-          name: patient.name,
-          history: patient.history || '',
-        },
-        vitals: {
-          weight: vitals?.weight ?? null,
-          bpSystolic: vitals?.bpSystolic ?? null,
-          bpDiastolic: vitals?.bpDiastolic ?? null,
-        },
-        examination: latestExamination
-          ? {
-              id: latestAppointment?.id || 0,
-              complaints: latestExamination.complaints || '',
-              diagnosis: latestExamination.diagnosis || '',
-              visitStatus: latestExamination.visitStatus || patient.visitStatus || '',
-              medicines: latestPrescription?.medicines || '',
-              recommendations: latestPrescription?.recommendations || '',
-            }
-          : null,
-        visitStatus: patient.visitStatus,
-        latestAppointment: latestAppointment
-          ? {
-              id: latestAppointment.id,
-              dateTime: latestAppointment.dateTime?.toISOString() || null,
-            }
-          : null,
-      };
-    });
+    const formatted = patients.map((patient) => ({
+      id: patient.id,
+      patient: {
+        id: patient.id,
+        name: patient.name,
+        history: (patient.history as any) || null,
+      },
+      vitals: {
+        weight: (patient.vitals as VitalsJson)?.weight ?? null,
+        bpSystolic: (patient.vitals as VitalsJson)?.bpSystolic ?? null,
+        bpDiastolic: (patient.vitals as VitalsJson)?.bpDiastolic ?? null,
+      },
+      examination: (patient.examination as ExaminationJson) || null,
+      prescription: (patient.prescription as PrescriptionJson) || null,
+      visitStatus: patient.visitStatus || null,
+    }));
 
     console.log('✅ [AssignedToDoctor] Formatted response:', formatted.length);
     return NextResponse.json(formatted);

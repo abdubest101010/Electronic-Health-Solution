@@ -1,133 +1,112 @@
-import { NextResponse, NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { VisitStatus } from '@prisma/client';
 
-export async function GET(request: NextRequest, { params }: { params?: { id?: string } }) {
-  console.log('✅ [PaidLabOrders] Request received');
+interface HistoryJson {
+  [key: string]: any; // Index signature for InputJsonValue
+}
+
+interface NotificationsJson {
+  [key: string]: any; // Index signature for InputJsonValue
+}
+
+interface VitalsJson {
+  weight?: number | null;
+  bpSystolic?: number | null;
+  bpDiastolic?: number | null;
+  measuredById?: string | null;
+  measuredAt?: string | null;
+  [key: string]: any; // Index signature for InputJsonValue
+}
+
+interface ExaminationJson {
+  appointmentId?: string | null;
+  complaints?: string | null;
+  diagnosis?: string | null;
+  visitStatus?: VisitStatus | null;
+  createdAt?: string | null;
+  [key: string]: any; // Index signature for InputJsonValue
+}
+
+interface PrescriptionJson {
+  appointmentId?: string | null;
+  medicines?: string | null;
+  recommendations?: string | null;
+  createdAt?: string | null;
+  [key: string]: any; // Index signature for InputJsonValue
+}
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  console.log('✅ [PatientGET] Request received for patient ID:', id);
 
   const session = await auth();
-  if (!session || session.user.role !== 'LABORATORIST') {
-    console.log('❌ [PaidLabOrders] Unauthorized access - Missing or invalid session:', session);
-    return NextResponse.json({ error: 'Unauthorized: Laboratorist only' }, { status: 401 });
+  console.log('🔍 [PatientGET] Session:', JSON.stringify(session, null, 2));
+
+  if (!session?.user || !['DOCTOR', 'RECEPTIONIST'].includes(session.user.role)) {
+    console.log('❌ [PatientGET] Unauthorized access - Missing or invalid session:', session);
+    return NextResponse.json({ error: 'Unauthorized: Doctor or Receptionist only' }, { status: 401 });
   }
-  console.log('✅ [PaidLabOrders] User authenticated:', session.user.name, session.user.id);
+  console.log('✅ [PatientGET] User authenticated:', session.user.name, session.user.id, session.user.role);
 
-  const url = new URL(request.url);
-  const page = parseInt(url.searchParams.get('page') || '1');
-  const perPage = parseInt(url.searchParams.get('perPage') || '20');
-  const skip = (page - 1) * perPage;
-  const patientId = params?.id ? parseInt(params.id) : null;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0); // Start of today (Africa/Nairobi)
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (!id || typeof id !== 'string') {
+    console.log('❌ [PatientGET] Invalid patient ID:', id);
+    return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
+  }
 
   try {
-    if (patientId) {
-      console.log(`🔍 [PaidLabOrders] Fetching paid lab orders for patient ${patientId}...`);
-      if (isNaN(patientId)) {
-        console.warn('❌ [PaidLabOrders] Invalid patientId:', params?.id);
-        return NextResponse.json({ error: 'Valid patientId is required' }, { status: 400 });
-      }
-
-      const patient = await prisma.patient.findUnique({
-        where: { id: patientId },
-        include: {
-          doctor: { select: { id: true, name: true } },
-          labOrders: {
-            where: {
-              laboratoristId: session.user.id,
-              status: 'PAID',
-              paidAt: { gte: today, lt: tomorrow },
-            },
-            include: {
-              service: { select: { name: true } },
-              orderedBy: { select: { name: true } },
-              laboratorist: { select: { name: true } },
-            },
-            orderBy: { paidAt: 'asc' },
+    const patient = await prisma.patient.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        address: true,
+        gender: true,
+        age: true,
+        dob: true,
+        history: true,
+        notifications: true,
+        visitStatus: true,
+        vitals: true,
+        examination: true,
+        prescription: true,
+        doctorId: true,
+        doctor: {
+          select: {
+            name: true,
           },
         },
-      });
-
-      if (!patient) {
-        console.warn(`❌ [PaidLabOrders] Patient not found: ${patientId}`);
-        return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
-      }
-
-      const result = {
-        patientId: patient.id,
-        patientName: patient.name,
-        labTests: patient.labOrders.map((order) => ({
-          labOrderId: order.id,
-          serviceName: order.service.name,
-          orderedByName: order.orderedBy.name,
-          doctorId: patient.doctor?.id || '',
-          doctorName: patient.doctor?.name || 'Not assigned',
-          laboratoristName: order.laboratorist?.name || 'Not assigned',
-          orderedAt: order.orderedAt.toISOString(),
-          paidAt: order.paidAt?.toISOString() || '',
-        })),
-      };
-
-      console.log('✅ [PaidLabOrders] Formatted response for patient:', result);
-      return NextResponse.json(result);
-    } else {
-      console.log(`🔍 [PaidLabOrders] Fetching patients with paid lab orders for laboratorist ${session.user.id}, page ${page}...`);
-      const patientIds = await prisma.labOrder.groupBy({
-        by: ['patientId'],
-        where: {
-          laboratoristId: session.user.id,
-          status: 'PAID',
-          paidAt: {
-            gte: today,
-            lt: tomorrow,
-          },
-        },
-        orderBy: { patientId: 'asc' },
-        skip,
-        take: perPage,
-      });
-
-      const total = await prisma.labOrder.groupBy({
-        by: ['patientId'],
-        where: {
-          laboratoristId: session.user.id,
-          status: 'PAID',
-          paidAt: {
-            gte: today,
-            lt: tomorrow,
-          },
-        },
-      }).then((result) => result.length);
-
-      const patientData = await prisma.patient.findMany({
-        where: {
-          id: { in: patientIds.map((p) => p.patientId) },
-        },
-        select: {
-          id: true,
-          name: true,
-        },
-        orderBy: { name: 'asc' },
-      });
-
-      const formatted = patientData.map((patient) => ({
-        patientId: patient.id,
-        patientName: patient.name,
-      }));
-
-      console.log('✅ [PaidLabOrders] Fetched patients:', formatted.length, 'Total:', total);
-      return NextResponse.json({ data: formatted, total });
-    }
-  } catch (error: any) {
-    console.error('💥 [PaidLabOrders] Unexpected error:', {
-      message: error.message,
-      stack: error.stack,
-      ...(error.code && { prismaCode: error.code }),
-      ...(error.meta && { prismaMeta: error.meta }),
+      },
     });
-    return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
+
+    if (!patient) {
+      console.log('❌ [PatientGET] Patient not found:', id);
+      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
+    }
+
+    const filteredPatient: Record<string, any> = {
+      id: patient.id,
+      name: patient.name,
+      phone: patient.phone,
+      address: patient.address,
+      gender: patient.gender,
+      age: patient.age,
+      dob: patient.dob?.toISOString() || null,
+      history: patient.history ? (patient.history as unknown as HistoryJson) : null,
+      notifications: patient.notifications ? (patient.notifications as unknown as NotificationsJson) : null,
+      visitStatus: patient.visitStatus || null,
+      vitals: patient.vitals ? (patient.vitals as unknown as VitalsJson) : null,
+      examination: patient.examination ? (patient.examination as unknown as ExaminationJson) : null,
+      prescription: patient.prescription ? (patient.prescription as unknown as PrescriptionJson) : null,
+      doctorName: patient.doctor?.name || null,
+    };
+
+    console.log('✅ [PatientGET] Patient details:', filteredPatient);
+    return NextResponse.json(filteredPatient);
+  } catch (error) {
+    console.error('💥 [PatientGET] Error fetching patient details:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

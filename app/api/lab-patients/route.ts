@@ -1,9 +1,10 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { VisitStatus } from '@prisma/client';
 
 interface LabTest {
-  labOrderId: number;
+  labOrderId: string; // Changed to string for ObjectID
   serviceName: string;
   orderedByName: string;
   doctorId: string;
@@ -15,11 +16,11 @@ interface LabTest {
 }
 
 interface LabPatient {
-  patientId: number;
+  patientId: string; // Changed to string for ObjectID
   patientName: string;
   doctorId?: string;
   doctorName?: string;
-  visitStatus?: string;
+  visitStatus?: VisitStatus | null; // Use VisitStatus enum
   labTestsByDate: { date: string; labTests: LabTest[] }[];
 }
 
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest) {
           patientName: order.patient.name,
           doctorId: order.patient.doctor?.id || '',
           doctorName: order.patient.doctor?.name || 'Not assigned',
-          visitStatus: order.patient.visitStatus || 'REGISTERED',
+          visitStatus: order.patient.visitStatus || null, // Handle nullable visitStatus
           labTestsByDate: [],
         };
       }
@@ -76,7 +77,7 @@ export async function GET(req: NextRequest) {
         paidAt: order.paidAt?.toISOString(),
       });
       return acc;
-    }, {} as { [key: number]: LabPatient });
+    }, {} as { [key: string]: LabPatient });
 
     const result = Object.values(groupedByPatient).map((patient) => ({
       ...patient,

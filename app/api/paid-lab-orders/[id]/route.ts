@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { VisitStatus } from '@prisma/client';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   console.log('✅ [LabOrdersByPatient] Request received for patient:', params.id);
@@ -12,10 +13,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
   console.log('✅ [LabOrdersByPatient] User authenticated:', session.user.name, session.user.id);
 
-  const patientId = parseInt(params.id);
-  if (isNaN(patientId)) {
-    console.warn('❌ [LabOrdersByPatient] Invalid patientId:', params.id);
-    return NextResponse.json({ error: 'Valid patientId is required' }, { status: 400 });
+  const patientId = params.id;
+  if (!patientId || typeof patientId !== 'string') {
+    console.warn('❌ [LabOrdersByPatient] Invalid patientId:', patientId);
+    return NextResponse.json({ error: 'Valid patientId (string) is required' }, { status: 400 });
   }
 
   try {
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         labOrders: {
           where: {
             laboratoristId: session.user.id,
-            status: 'PAID',
+            status: 'PAID', // Ensure this matches
           },
           select: {
             id: true,
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       patientName: patient.name,
       doctorId: patient.doctor?.id || '',
       doctorName: patient.doctor?.name || 'Not assigned',
-      visitStatus: patient.visitStatus || 'REGISTERED',
+      visitStatus: patient.visitStatus || null,
       labOrders: patient.labOrders.map((order) => ({
         labOrderId: order.id,
         serviceName: order.service.name,
@@ -75,7 +76,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       })),
     };
 
-    console.log('✅ [LabOrdersByPatient] Formatted response:', result);
+    console.log('🔍 [LabOrdersByPatient] Formatted response:', JSON.stringify(result, null, 2));
     return NextResponse.json(result);
   } catch (error: any) {
     console.error('💥 [LabOrdersByPatient] Unexpected error:', {

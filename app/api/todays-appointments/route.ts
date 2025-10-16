@@ -1,7 +1,7 @@
-// app/api/todays-appointments/route.ts
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { VisitStatus } from '@prisma/client';
 
 export async function GET() {
   const session = await auth();
@@ -15,26 +15,36 @@ export async function GET() {
   todayEnd.setHours(23, 59, 59, 999);
 
   try {
-    const appointments = await prisma.appointment.findMany({
+    const patients = await prisma.patient.findMany({
       where: {
-        dateTime: {
+        createdAt: {
           gte: todayStart,
           lte: todayEnd,
         },
-        status: {
-          in: ['SCHEDULED', 'COMPLETED'],
+        visitStatus: {
+          in: [
+            VisitStatus.REGISTERED,
+            VisitStatus.VITALS_TAKEN,
+            VisitStatus.ASSIGNED_TO_DOCTOR,
+            VisitStatus.EXAMINED,
+            VisitStatus.LAB_ORDERED,
+            VisitStatus.PAID_FOR_LAB,
+            VisitStatus.ASSIGNED_TO_LAB,
+            VisitStatus.LAB_COMPLETED,
+            VisitStatus.FINALIZED,
+          ],
         },
       },
       include: {
-        patient: true,
         labOrders: true,
+        doctor: { select: { name: true } },
       },
-      orderBy: { dateTime: 'asc' },
+      orderBy: { createdAt: 'asc' },
     });
 
-    return NextResponse.json(appointments);
+    return NextResponse.json(patients);
   } catch (error) {
-    console.error('Error fetching today’s appointments:', error);
+    console.error('Error fetching today’s patients:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { VisitStatus } from '@prisma/client';
 
 export async function GET(req: NextRequest) {
   console.log('✅ [PatientsGET] Request received');
@@ -21,24 +22,20 @@ export async function GET(req: NextRequest) {
       where: searchTerm
         ? {
             name: {
-              contains: searchTerm.toLowerCase(), // Keep original search logic
+              contains: searchTerm.toLowerCase(),
+              mode: 'insensitive',
             },
           }
         : {},
-      select: {
-        id: true,
-        name: true,
-        createdAt: true,
+      include: {
         appointments: {
-          where: { status: 'SCHEDULED' }, // Fetch only scheduled appointments
           select: {
             id: true,
             dateTime: true,
-            status: true,
+            status: true
           },
-          orderBy: { dateTime: 'desc' }, // Get the latest appointment
-          take: 1, // Limit to the most recent appointment
-        },
+          orderBy: { dateTime: 'asc' }
+        }
       },
       orderBy: { createdAt: 'desc' },
     });

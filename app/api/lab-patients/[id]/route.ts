@@ -1,9 +1,10 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { VisitStatus } from '@prisma/client';
 
 interface LabTest {
-  labOrderId: number;
+  labOrderId: string; // Changed to string
   serviceName: string;
   orderedByName: string;
   doctorId: string;
@@ -15,11 +16,11 @@ interface LabTest {
 }
 
 interface LabPatient {
-  patientId: number;
+  patientId: string; // Changed to string
   patientName: string;
   doctorId?: string;
   doctorName?: string;
-  visitStatus?: string;
+  visitStatus?: VisitStatus | null; // Use VisitStatus enum
   labTestsByDate: { date: string; labTests: LabTest[] }[];
 }
 
@@ -33,10 +34,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
   console.log('✅ [PatientLabOrdersById] User authenticated:', session.user.name, session.user.id);
 
-  const patientId = parseInt(params.id);
-  if (isNaN(patientId)) {
-    console.warn('❌ [PatientLabOrdersById] Invalid patientId:', params.id);
-    return NextResponse.json({ error: 'Valid patientId is required' }, { status: 400 });
+  const patientId = params.id;
+  if (!patientId || typeof patientId !== 'string') {
+    console.warn('❌ [PatientLabOrdersById] Invalid patientId:', patientId);
+    return NextResponse.json({ error: 'Valid patientId (string) is required' }, { status: 400 });
   }
 
   try {
@@ -88,7 +89,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       patientName: patient.name,
       doctorId: patient.doctor?.id || '',
       doctorName: patient.doctor?.name || 'Not assigned',
-      visitStatus: patient.visitStatus || 'REGISTERED',
+      visitStatus: patient.visitStatus || null, // Handle nullable visitStatus
       labTestsByDate: labTestsByDate.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     };
 

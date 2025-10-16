@@ -8,20 +8,22 @@ interface Patient {
 }
 
 export default function CreateAppointmentForm({ patientId }: { patientId: number }) {
+  // ✅ Keep patientId as STRING in form data
   const [formData, setFormData] = useState({ patientId: '', dateTime: '' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isUpdate, setIsUpdate] = useState(false);
-  const [appointmentId, setAppointmentId] = useState<number | null>(null);
+  const [appointmentId, setAppointmentId] = useState<string | null>(null); // ✅ string ID
 
   useEffect(() => {
-    setFormData({ ...formData, patientId: patientId.toString() });
+    // ✅ Convert once to string and keep it
+    setFormData((prev) => ({ ...prev, patientId: patientId.toString() }));
     checkAppointment();
   }, [patientId]);
 
   const checkAppointment = async () => {
     try {
-      const res = await fetch(`/api/appointments/check?patientId=${patientId}`, {
+      const res = await fetch(`/api/appointments/check?patientId=${encodeURIComponent(patientId.toString())}`, {
         headers: { 'Content-Type': 'application/json' },
       });
       if (!res.ok) {
@@ -29,7 +31,7 @@ export default function CreateAppointmentForm({ patientId }: { patientId: number
       }
       const { hasAppointment } = await res.json();
       if (hasAppointment) {
-        const appointmentRes = await fetch(`/api/appointments/get?patientId=${patientId}`, {
+        const appointmentRes = await fetch(`/api/appointments/get?patientId=${encodeURIComponent(patientId.toString())}`, {
           headers: { 'Content-Type': 'application/json' },
         });
         if (appointmentRes.ok) {
@@ -39,7 +41,7 @@ export default function CreateAppointmentForm({ patientId }: { patientId: number
             dateTime: appointmentData.dateTime ? new Date(appointmentData.dateTime).toISOString().slice(0, 16) : '',
           });
           setIsUpdate(true);
-          setAppointmentId(appointmentData.id);
+          setAppointmentId(appointmentData.id); // ✅ string
         }
       }
     } catch (err: any) {
@@ -48,7 +50,7 @@ export default function CreateAppointmentForm({ patientId }: { patientId: number
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
@@ -58,12 +60,17 @@ export default function CreateAppointmentForm({ patientId }: { patientId: number
     setError(null);
     try {
       console.log('🔄 [CreateAppointmentForm] Submitting appointment:', formData);
-      const endpoint = isUpdate ? `/api/appointments/update?id=${appointmentId}` : '/api/appointments/create';
+      
+      const endpoint = isUpdate 
+        ? `/api/appointments/update?id=${encodeURIComponent(appointmentId || '')}` 
+        : '/api/appointments/create';
+
       const res = await fetch(endpoint, {
         method: isUpdate ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          patientId: parseInt(formData.patientId),
+          // ✅ DO NOT parseInt — send as STRING
+          patientId: formData.patientId, // ← This is already a string!
           dateTime: formData.dateTime,
         }),
       });
@@ -78,8 +85,9 @@ export default function CreateAppointmentForm({ patientId }: { patientId: number
         }
       } else {
         console.warn(`❌ [CreateAppointmentForm] Error ${isUpdate ? 'updating' : 'creating'} appointment:`, responseData);
-        alert(`❌ Error: ${responseData.error || `Failed to ${isUpdate ? 'update' : 'create'} appointment`}`);
       }
+      // refresh the page to show the new appointment
+      window.location.reload();
     } catch (err: any) {
       console.error('💥 [CreateAppointmentForm] Network error:', err);
       setError('Network error. Check console for details.');

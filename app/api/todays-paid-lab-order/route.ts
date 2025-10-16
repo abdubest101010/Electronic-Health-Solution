@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const skip = (page - 1) * perPage;
 
   const today = new Date();
-  today.setHours(0, 0, 0, 0); // Start of today (Africa/Nairobi)
+  today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 

@@ -1,18 +1,26 @@
-// app/api/unpaid-lab-appointments/route.ts (for mark paid)
 import { NextResponse } from 'next/server';
-import {auth} from '@/auth'; // use the new helper from your auth.ts
+import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 
 export async function GET() {
-const session = await auth(); // instead of getServerSession(authOptions)
-    if (!session || session.user.role !== 'RECEPTIONIST') {
+  const session = await auth();
+  if (!session || session.user.role !== 'RECEPTIONIST') {
+    console.log('Unauthorized access attempt:', { session });
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const appointments = await prisma.appointment.findMany({
-    where: { visitStatus: 'LAB_ORDERED' },
-    include: { patient: { select: { name: true } } },
-  });
+  try {
+    const patients = await prisma.patient.findMany({
+      where: { visitStatus: 'LAB_ORDERED' },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
 
-  return NextResponse.json(appointments);
+    return NextResponse.json(patients);
+  } catch (error) {
+    console.error('Error fetching unpaid lab patients:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Paper, Typography, TextField, Button, Dialog, DialogTitle, DialogContent, DialogActions, Collapse } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -11,7 +11,7 @@ import LabAssign from './LabAssign';
 import { LabService } from '@/types/appointment';
 
 interface Examination {
-  appointmentId: number | null;
+  appointmentId: string | number | null; // Could be string (Mongo ID) or number
   complaints: string | null;
   diagnosis: string | null;
   visitStatus: string;
@@ -19,7 +19,7 @@ interface Examination {
 }
 
 interface Prescription {
-  appointmentId: number | null;
+  appointmentId: string | number | null;
   medicines: string | null;
   recommendations: string | null;
   createdAt: string;
@@ -63,7 +63,6 @@ export default function ExaminationSection({
   const [justAssigned, setJustAssigned] = useState(false);
   const [hasCompletedResults, setHasCompletedResults] = useState(false);
 
-  // Debug re-renders
   useEffect(() => {
     console.log('🔄 [ExaminationSection] Rendered');
   });
@@ -81,20 +80,6 @@ export default function ExaminationSection({
       setJustAssigned(false);
     }
   }, []);
-
-  // Filter examinations to show only the latest relevant record per day
-  const filteredExaminations = examinations.reduce((acc: Examination[], exam: Examination) => {
-    const examDate = new Date(exam.createdAt).toISOString().split('T')[0];
-    const existingExam = acc.find((e) => new Date(e.createdAt).toISOString().split('T')[0] === examDate);
-
-    if (!existingExam) {
-      acc.push(exam);
-    } else if (exam.diagnosis && (!existingExam.diagnosis || new Date(exam.createdAt) > new Date(existingExam.createdAt))) {
-      acc = acc.filter((e) => new Date(e.createdAt).toISOString().split('T')[0] !== examDate);
-      acc.push(exam);
-    }
-    return acc;
-  }, []).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const handleExamine = async () => {
     setExamLoading(true);
@@ -244,63 +229,138 @@ export default function ExaminationSection({
         </Box>
       </Box>
 
-      {/* Past Visits */}
+      {/* ✅ FULLY FIXED: Past Visits — Group by appointmentId, then by date */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1a237e', mb: 2 }}>
           Past Visits
         </Typography>
-        {filteredExaminations.length === 0 && prescriptions.length === 0 ? (
-          <Typography sx={{ color: '#666' }}>No past visits recorded.</Typography>
-        ) : (
-          filteredExaminations.map((exam, index) => (
-            <Box
-              key={`${exam.createdAt}-${index}`}
-              sx={{
-                p: 2,
-                mb: 2,
-                border: '1px solid rgba(26, 35, 126, 0.1)',
-                borderRadius: 1,
-                backgroundColor: '#fff',
-              }}
-            >
-              <Typography variant="body2" sx={{ color: '#1a237e', fontWeight: 500 }}>
-                Visit on {new Date(exam.createdAt).toLocaleString()}
-              </Typography>
-              {exam.appointmentId && (
+
+        {(() => {
+          // Step 1: Group examinations by key (appointmentId or date)
+          const examGroups = new Map<string, Examination[]>();
+          examinations.forEach((exam) => {
+            const key = exam.appointmentId
+              ? `appt_${String(exam.appointmentId)}`
+              : `date_${new Date(exam.createdAt).toISOString().split('T')[0]}`;
+            if (!examGroups.has(key)) examGroups.set(key, []);
+            examGroups.get(key)!.push(exam);
+          });
+
+          // Step 2: Group prescriptions similarly
+          const presGroups = new Map<string, Prescription[]>();
+          prescriptions.forEach((pres) => {
+            const key = pres.appointmentId
+              ? `appt_${String(pres.appointmentId)}`
+              : `date_${new Date(pres.createdAt).toISOString().split('T')[0]}`;
+            if (!presGroups.has(key)) presGroups.set(key, []);
+            presGroups.get(key)!.push(pres);
+          });
+
+          // Step 3: Get all unique keys
+          const allKeys = Array.from(
+            new Set([...examGroups.keys(), ...presGroups.keys()])
+          );
+
+          // Step 4: Sort by latest createdAt (use latest record in group for sorting)
+          const visits = allKeys
+            .map((key) => {
+              const exams = examGroups.get(key) || [];
+              const pres = presGroups.get(key) || [];
+              const allRecords = [...exams, ...pres];
+              const latestTime = allRecords.reduce(
+                (max, rec) => Math.max(max, new Date(rec.createdAt).getTime()),
+                0
+              );
+              return { key, exams, pres, latestTime };
+            })
+            .sort((a, b) => b.latestTime - a.latestTime);
+
+          if (visits.length === 0) {
+            return <Typography sx={{ color: '#666' }}>No past visits recorded.</Typography>;
+          }
+
+          return visits.map(({ key, exams, pres }) => {
+            // Merge examination data
+            let mergedComplaints: string | null = null;
+            let mergedDiagnosis: string | null = null;
+            let visitStatus = 'REGISTERED';
+            let appointmentId: string | number | null = null;
+            let displayDate = '';
+
+            const sortedExams = [...exams].sort(
+              (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+            );
+
+            sortedExams.forEach((exam) => {
+              if (exam.complaints) mergedComplaints = exam.complaints;
+              if (exam.diagnosis) mergedDiagnosis = exam.diagnosis;
+              if (exam.visitStatus) visitStatus = exam.visitStatus;
+              if (exam.appointmentId) appointmentId = exam.appointmentId;
+              if (!displayDate) {
+                displayDate = new Date(exam.createdAt).toLocaleDateString();
+              }
+            });
+
+            // If no exams, use prescription date
+            if (!displayDate && pres.length > 0) {
+              displayDate = new Date(pres[0].createdAt).toLocaleDateString();
+            }
+
+            return (
+              <Box
+                key={key}
+                sx={{
+                  p: 2,
+                  mb: 2,
+                  border: '1px solid rgba(26, 35, 126, 0.1)',
+                  borderRadius: 1,
+                  backgroundColor: '#fff',
+                }}
+              >
+                <Typography variant="body2" sx={{ color: '#1a237e', fontWeight: 500 }}>
+                  Visit on {displayDate}
+                </Typography>
+
+                {appointmentId && (
+                  <Typography variant="body2" sx={{ color: '#666' }}>
+                    Appointment ID: {String(appointmentId)}
+                  </Typography>
+                )}
+
+                {mergedComplaints && (
+                  <Typography variant="body2" sx={{ color: '#666', mt: 1 }}>
+                    <strong>Complaints:</strong> {mergedComplaints}
+                  </Typography>
+                )}
+
+                {mergedDiagnosis && (
+                  <Typography variant="body2" sx={{ color: '#666' }}>
+                    <strong>Diagnosis:</strong> {mergedDiagnosis}
+                  </Typography>
+                )}
+
                 <Typography variant="body2" sx={{ color: '#666' }}>
-                  Appointment ID: {exam.appointmentId}
+                  <strong>Visit Status:</strong> {visitStatus.replace(/_/g, ' ')}
                 </Typography>
-              )}
-              {exam.complaints && (
-                <Typography variant="body2" sx={{ color: '#666', mt: 1 }}>
-                  <strong>Complaints:</strong> {exam.complaints}
-                </Typography>
-              )}
-              {exam.diagnosis && (
-                <Typography variant="body2" sx={{ color: '#666' }}>
-                  <strong>Diagnosis:</strong> {exam.diagnosis}
-                </Typography>
-              )}
-              <Typography variant="body2" sx={{ color: '#666' }}>
-                <strong>Visit Status:</strong> {exam.visitStatus.replace(/_/g, ' ')}
-              </Typography>
-              {Array.isArray(prescriptions) && prescriptions[index] && (
-                <>
-                  {prescriptions[index].medicines && (
-                    <Typography variant="body2" sx={{ color: '#666', mt: 1 }}>
-                      <strong>Medicines:</strong> {prescriptions[index].medicines}
-                    </Typography>
-                  )}
-                  {prescriptions[index].recommendations && (
-                    <Typography variant="body2" sx={{ color: '#666' }}>
-                      <strong>Recommendations:</strong> {prescriptions[index].recommendations}
-                    </Typography>
-                  )}
-                </>
-              )}
-            </Box>
-          ))
-        )}
+
+                {pres.map((p, idx) => (
+                  <React.Fragment key={idx}>
+                    {p.medicines && (
+                      <Typography variant="body2" sx={{ color: '#666', mt: 1 }}>
+                        <strong>Medicines:</strong> {p.medicines}
+                      </Typography>
+                    )}
+                    {p.recommendations && (
+                      <Typography variant="body2" sx={{ color: '#666' }}>
+                        <strong>Recommendations:</strong> {p.recommendations}
+                      </Typography>
+                    )}
+                  </React.Fragment>
+                ))}
+              </Box>
+            );
+          });
+        })()}
       </Box>
 
       {/* Current Visit */}

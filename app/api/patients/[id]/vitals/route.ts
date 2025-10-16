@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { VisitStatus } from '@prisma/client';
+
+interface VitalsJson {
+  weight?: number | null;
+  bpSystolic?: number | null;
+  bpDiastolic?: number | null;
+  measuredById?: string | null;
+  measuredAt?: string | null;
+  [key: string]: any; // Index signature for InputJsonValue
+}
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -11,8 +21,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Unauthorized: Doctor or Receptionist only' }, { status: 401 });
   }
 
-  const patientId = parseInt(id);
-  if (isNaN(patientId)) {
+  if (!id || typeof id !== 'string') {
     console.log('❌ [VitalsPOST] Invalid patient ID:', id);
     return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
   }
@@ -37,29 +46,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const patient = await prisma.patient.findUnique({
-      where: { id: patientId },
+      where: { id },
     });
 
     if (!patient) {
-      console.log('❌ [VitalsPOST] Patient not found:', patientId);
+      console.log('❌ [VitalsPOST] Patient not found:', id);
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
     const updatedPatient = await prisma.patient.update({
-      where: { id: patientId },
+      where: { id },
       data: {
         vitals: {
           weight,
           bpSystolic,
           bpDiastolic,
           measuredById: session.user.id,
-          measuredAt: new Date(),
-        },
-        visitStatus: 'VITALS_TAKEN',
+          measuredAt: new Date().toISOString(),
+        } as VitalsJson,
+        visitStatus: VisitStatus.VITALS_TAKEN,
       },
     });
 
-    console.log('✅ [VitalsPOST] Vitals added for patient:', patientId);
+    console.log('✅ [VitalsPOST] Vitals added for patient:', id);
     return NextResponse.json(updatedPatient);
   } catch (error) {
     console.error('💥 [VitalsPOST] Error adding vitals:', error);
@@ -76,8 +85,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Unauthorized: Doctor or Receptionist only' }, { status: 401 });
   }
 
-  const patientId = parseInt(id);
-  if (isNaN(patientId)) {
+  if (!id || typeof id !== 'string') {
     console.log('❌ [VitalsPUT] Invalid patient ID:', id);
     return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
   }
@@ -102,7 +110,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const patient = await prisma.patient.findUnique({
-      where: { id: patientId },
+      where: { id },
     });
 
     if (!patient) {
@@ -111,19 +119,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const updatedPatient = await prisma.patient.update({
-      where: { id: patientId },
+      where: { id },
       data: {
         vitals: {
           weight,
           bpSystolic,
           bpDiastolic,
           measuredById: session.user.id,
-          measuredAt: new Date(),
-        },
+          measuredAt: new Date().toISOString(),
+        } as VitalsJson,
       },
     });
 
-    console.log('✅ [VitalsPUT] Vitals updated for patient:', patientId);
+    console.log('✅ [VitalsPUT] Vitals updated for patient:', id);
     return NextResponse.json(updatedPatient);
   } catch (error) {
     console.error('💥 [VitalsPUT] Error updating vitals:', error);

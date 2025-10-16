@@ -140,7 +140,7 @@ export default function PatientTable({ patients }: PatientTableProps) {
                     : 'No Appointment'}
                 </TableCell>
                 <TableCell sx={{ color: '#1a237e' }}>
-                  {patient.appointments.length > 0 ? (
+                  {patient.appointments?.length > 0 ? (
                     <Typography
                       variant="body2"
                       sx={{

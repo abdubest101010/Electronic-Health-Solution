@@ -1,6 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { VisitStatus } from '@prisma/client';
+
+interface HistoryJson {
+  [key: string]: any;
+}
+
+interface NotificationsJson {
+  [key: string]: any;
+}
+
+interface VitalsJson {
+  weight?: number | null;
+  bpSystolic?: number | null;
+  bpDiastolic?: number | null;
+  measuredById?: string | null;
+  measuredAt?: string | null;
+  [key: string]: any;
+}
+
+interface ExaminationJson {
+  appointmentId?: string | null;
+  complaints?: string | null;
+  diagnosis?: string | null;
+  visitStatus?: VisitStatus | null;
+  createdAt?: string | null;
+  [key: string]: any;
+}
+
+interface PrescriptionJson {
+  appointmentId?: string | null;
+  medicines?: string | null;
+  recommendations?: string | null;
+  createdAt?: string | null;
+  [key: string]: any;
+}
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -15,15 +50,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
   console.log('✅ [PatientGET] User authenticated:', session.user.name, session.user.id, session.user.role);
 
-  const patientId = parseInt(id);
-  if (isNaN(patientId)) {
+  if (!id || typeof id !== 'string') {
     console.log('❌ [PatientGET] Invalid patient ID:', id);
     return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
   }
 
   try {
     const patient = await prisma.patient.findUnique({
-      where: { id: patientId },
+      where: { id },
       select: {
         id: true,
         name: true,
@@ -44,50 +78,48 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             name: true,
           },
         },
-        appointments: {
-          where: { status: 'SCHEDULED' }, // Only fetch SCHEDULED appointments
-          orderBy: { dateTime: 'desc' },
-          take: 1,
-          select: {
-            id: true,
-            dateTime: true,
-            status: true, // Include status to match /api/patients
-          },
-        },
       },
     });
 
     if (!patient) {
-      console.log('❌ [PatientGET] Patient not found:', patientId);
+      console.log('❌ [PatientGET] Patient not found:', id);
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
-    // Normalize examination and prescription to arrays
-    const normalizedPatient = {
-      ...patient,
-      examination: Array.isArray(patient.examination) ? patient.examination : [],
-      prescription: Array.isArray(patient.prescription) ? patient.prescription : [],
-    };
+    // Ensure examination and prescription are arrays, handling single objects or null
+    const examinations = Array.isArray(patient.examination) 
+      ? patient.examination as ExaminationJson[] 
+      : patient.examination ? [patient.examination as ExaminationJson] : [];
+    const prescriptions = Array.isArray(patient.prescription) 
+      ? patient.prescription as PrescriptionJson[] 
+      : patient.prescription ? [patient.prescription as PrescriptionJson] : [];
 
-    // Filter out null fields and format response
-    const filteredPatient: Record<string, any> = {};
-    for (const [key, value] of Object.entries(normalizedPatient)) {
-      if (value !== null && value !== undefined) {
-        if (key === 'doctor' && normalizedPatient.doctor) {
-          filteredPatient.doctorName = normalizedPatient.doctor.name;
-        } else if (key === 'appointments' && normalizedPatient.appointments[0]) {
-          filteredPatient.latestAppointment = {
-            id: normalizedPatient.appointments[0].id,
-            dateTime: normalizedPatient.appointments[0].dateTime,
-            status: normalizedPatient.appointments[0].status, // Include status
-            examination: normalizedPatient.examination,
-            prescription: normalizedPatient.prescription,
-          };
-        } else if (key !== 'doctor' && key !== 'appointments') {
-          filteredPatient[key] = value;
-        }
-      }
-    }
+    // Align examinations and prescriptions by appointmentId or createdAt date
+    const alignedExaminations = examinations.map((exam: ExaminationJson) => {
+      const examDate = new Date(exam.createdAt || '').toISOString().split('T')[0];
+      const matchedPrescription = prescriptions.find((p: PrescriptionJson) => {
+        const presDate = new Date(p.createdAt || '').toISOString().split('T')[0];
+        return p.appointmentId === exam.appointmentId || presDate === examDate;
+      }) || { appointmentId: null, medicines: null, recommendations: null, createdAt: null };
+      return { ...exam, prescription: matchedPrescription };
+    });
+
+    const filteredPatient: Record<string, any> = {
+      id: patient.id,
+      name: patient.name,
+      phone: patient.phone,
+      address: patient.address,
+      gender: patient.gender,
+      age: patient.age,
+      dob: patient.dob?.toISOString() || null,
+      history: patient.history ? (patient.history as unknown as HistoryJson) : null,
+      notifications: patient.notifications ? (patient.notifications as unknown as NotificationsJson) : null,
+      visitStatus: patient.visitStatus || null,
+      vitals: patient.vitals ? (patient.vitals as unknown as VitalsJson) : null,
+      examination: alignedExaminations,
+      prescription: prescriptions,
+      doctorName: patient.doctor?.name || null,
+    };
 
     console.log('✅ [PatientGET] Patient details:', filteredPatient);
     return NextResponse.json(filteredPatient);

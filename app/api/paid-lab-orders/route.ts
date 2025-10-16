@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { VisitStatus } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
   console.log('✅ [LabOrders] Request received');
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
         labOrders: {
           some: {
             laboratoristId: session.user.id,
-            status: 'PAID',
+            status: 'PAID', // Ensure this filter is correct
           },
         },
       },
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
         labOrders: {
           where: {
             laboratoristId: session.user.id,
-            status: 'PAID',
+            status: 'PAID', // Double-check this condition
           },
           select: {
             id: true,
@@ -67,6 +68,8 @@ export async function GET(request: NextRequest) {
       skip,
     });
 
+    console.log('🔍 [LabOrders] Raw patients data:', JSON.stringify(patients, null, 2)); // Debug raw data
+
     const total = await prisma.patient.count({
       where: {
         labOrders: {
@@ -83,7 +86,7 @@ export async function GET(request: NextRequest) {
       patientName: patient.name,
       doctorId: patient.doctor?.id || '',
       doctorName: patient.doctor?.name || 'Not assigned',
-      visitStatus: patient.visitStatus || 'REGISTERED',
+      visitStatus: patient.visitStatus || null,
       labOrders: patient.labOrders.map((order) => ({
         labOrderId: order.id,
         serviceName: order.service.name,
@@ -96,6 +99,8 @@ export async function GET(request: NextRequest) {
         paidAt: order.paidAt?.toISOString() || '',
       })),
     }));
+
+    console.log('🔍 [LabOrders] Formatted response:', JSON.stringify(formatted, null, 2)); // Debug formatted data
 
     const sortedFormatted = formatted.sort((a, b) => {
       const aLatest = a.labOrders[0]?.orderedAt || '0';

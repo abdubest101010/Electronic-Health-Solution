@@ -11,9 +11,9 @@ export async function GET(req: NextRequest) {
 
   try {
     const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0); // Start of today in EAT (UTC+3)
+    startOfDay.setUTCHours(-3, 0, 0, 0); // Start of today in EAT (UTC+3)
     const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999); // End of today in EAT (UTC+3)
+    endOfDay.setUTCHours(20, 59, 59, 999); // End of today in EAT (UTC+3)
 
     const patients = await prisma.patient.findMany({
       where: {

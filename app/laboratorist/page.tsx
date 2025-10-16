@@ -39,7 +39,7 @@ interface LabOrder {
 }
 
 interface Patient {
-  patientId: number;
+  patientId: string; // Changed to string to match MongoDB ObjectID from logs
   patientName: string;
   doctorId: string;
   doctorName: string;
@@ -56,7 +56,8 @@ export default function LaboratoristDashboard() {
   const [resultInputs, setResultInputs] = useState<Record<number, string>>({});
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [expandedPatients, setExpandedPatients] = useState<Record<number, boolean>>({});
+  const [expandedPatients, setExpandedPatients] = useState<Record<string, boolean>>({}); // Changed to string key
+
   const perPage = 20;
 
   const fetchPatients = async (pageNum: number = 1) => {
@@ -73,11 +74,16 @@ export default function LaboratoristDashboard() {
         throw new Error(errorData.error || 'Failed to load lab orders');
       }
       const { data, total } = await res.json();
-      console.log('✅ [LaboratoristDashboard] Fetched patients:', data);
-      // Validate patient data
-      const validPatients = (data || []).filter(
-        (p: Patient) => p.patientId && typeof p.patientId === 'number' && !isNaN(p.patientId)
-      );
+      console.log('🔍 [LaboratoristDashboard] Raw API response:', JSON.stringify({ data, total }, null, 2));
+      // Validate and map patient data, ensuring patientId is treated as string
+      const validPatients = Array.isArray(data) ? data.map((p: any) => ({
+        patientId: p.patientId.toString(), // Ensure string conversion
+        patientName: p.patientName,
+        doctorId: p.doctorId,
+        doctorName: p.doctorName,
+        visitStatus: p.visitStatus,
+        labOrders: p.labOrders || [],
+      })) : [];
       setPatients(validPatients);
       setTotalPages(Math.ceil((total || 0) / perPage));
       setResultInputs({});
@@ -91,8 +97,8 @@ export default function LaboratoristDashboard() {
     }
   };
 
-  const fetchPatientDetails = async (patientId: number) => {
-    if (!patientId || isNaN(patientId)) {
+  const fetchPatientDetails = async (patientId: string) => {
+    if (!patientId) {
       console.error('❌ [LaboratoristDashboard] Invalid patientId:', patientId);
       setError('Invalid patient ID. Please try again.');
       return;
@@ -104,7 +110,7 @@ export default function LaboratoristDashboard() {
         throw new Error(errorData.error || 'Failed to load patient details');
       }
       const data: Patient = await res.json();
-      console.log('✅ [LaboratoristDashboard] Fetched patient details:', data);
+      console.log('🔍 [LaboratoristDashboard] Fetched patient details:', JSON.stringify(data, null, 2));
       if (data.patientId && data.labOrders) {
         setPatients((prev) =>
           prev.map((p) => (p.patientId === patientId ? { ...p, labOrders: data.labOrders } : p))
@@ -119,12 +125,6 @@ export default function LaboratoristDashboard() {
     }
   };
 
-  useEffect(() => {
-    if (status === 'authenticated') {
-      fetchPatients(page);
-    }
-  }, [status, page]);
-
   const handleSubmitResult = async (labOrderId: number) => {
     const result = resultInputs[labOrderId]?.trim();
     if (!result) {
@@ -134,6 +134,7 @@ export default function LaboratoristDashboard() {
 
     setSubmitting(labOrderId);
     try {
+      console.log('🔍 [LaboratoristDashboard] Submitting result for labOrderId:', labOrderId);
       const res = await fetch('/api/laboratorists/submit-result', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -160,8 +161,8 @@ export default function LaboratoristDashboard() {
         setExpandedPatients((prev) => {
           const next = { ...prev };
           Object.keys(next).forEach((key) => {
-            if (next[parseInt(key)] && !patients.find((p) => p.patientId === parseInt(key))?.labOrders.length) {
-              delete next[parseInt(key)];
+            if (next[key] && !patients.find((p) => p.patientId === key)?.labOrders.length) {
+              delete next[key];
             }
           });
           return next;
@@ -177,6 +178,12 @@ export default function LaboratoristDashboard() {
     }
   };
 
+  useEffect(() => {
+    if (status === 'authenticated') {
+      fetchPatients(page);
+    }
+  }, [status, page]);
+
   const handleRefresh = () => {
     setPage(1);
     fetchPatients(1);
@@ -186,9 +193,9 @@ export default function LaboratoristDashboard() {
     setPage(value);
   };
 
-  const toggleExpand = useCallback((patientId: number) => {
+  const toggleExpand = useCallback((patientId: string) => {
     console.log('🔍 [LaboratoristDashboard] Toggling expand for patientId:', patientId);
-    if (!patientId || isNaN(patientId)) {
+    if (!patientId) {
       console.error('❌ [LaboratoristDashboard] Invalid patientId in toggleExpand:', patientId);
       setError('Invalid patient ID. Please try again.');
       return;
@@ -327,11 +334,11 @@ export default function LaboratoristDashboard() {
                 Welcome, {session?.user?.name || 'Laboratorist'}!
               </Typography>
             </Box>
-            {patients.length === 0 ? (
+            {patients.length === 0 || patients.every((p) => !p.labOrders || p.labOrders.length === 0) ? (
               <Box sx={{ textAlign: 'center', py: 4, backgroundColor: '#f8f9ff', borderRadius: 1 }}>
                 <ScienceIcon sx={{ fontSize: 48, color: '#e0e0e0', mb: 1 }} />
                 <Typography variant="body1" color="text.secondary">
-                  No paid lab tests assigned to you
+                  No paid lab tests assigned to you. Debug: {JSON.stringify(patients, null, 2)}
                 </Typography>
               </Box>
             ) : (

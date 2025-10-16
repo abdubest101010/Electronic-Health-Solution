@@ -31,10 +31,10 @@ export async function POST(req: NextRequest) {
   const { appointmentId, doctorId } = data;
 
   // Validate input
-  if (!appointmentId || isNaN(parseInt(appointmentId))) {
+  if (!appointmentId || typeof appointmentId !== "string") {
     console.warn("❌ [AssignDoctor] Invalid or missing appointmentId:", appointmentId);
     return NextResponse.json(
-      { error: "Valid appointmentId (number) is required" },
+      { error: "Valid appointmentId (string) is required" },
       { status: 400 }
     );
   }
@@ -47,16 +47,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const parsedAppointmentId = parseInt(appointmentId);
-
   try {
     console.log("🔍 [AssignDoctor] Checking appointment existence...");
     const appointment = await prisma.appointment.findUnique({
-      where: { id: parsedAppointmentId },
+      where: { id: appointmentId },
+      include: { patient: true }, // Include patient to update visitStatus
     });
 
     if (!appointment) {
-      console.warn(`❌ [AssignDoctor] Appointment with id ${parsedAppointmentId} not found`);
+      console.warn(`❌ [AssignDoctor] Appointment with id ${appointmentId} not found`);
       return NextResponse.json(
         { error: "Appointment not found" },
         { status: 404 }
@@ -86,14 +85,23 @@ export async function POST(req: NextRequest) {
     }
     console.log("✅ [AssignDoctor] Valid doctor found:", doctor.name, doctor.id);
 
-    console.log("🔄 [AssignDoctor] Updating appointment with doctorId...");
-    const updatedAppointment = await prisma.appointment.update({
-      where: { id: parsedAppointmentId },
-      data: {
-        doctorId: doctorId,
-        visitStatus: "ASSIGNED_TO_DOCTOR",
-      },
-    });
+    console.log("🔄 [AssignDoctor] Updating appointment and patient...");
+    const [updatedAppointment] = await prisma.$transaction([
+      prisma.appointment.update({
+        where: { id: appointmentId },
+        data: {
+          doctorId: doctorId,
+        },
+      }),
+      prisma.patient.update({
+        where: { id: appointment.patientId },
+        data: {
+          visitStatus: "ASSIGNED_TO_DOCTOR",
+          doctorId: doctorId,
+          assignedAt: new Date(),
+        },
+      }),
+    ]);
 
     console.log("✅ [AssignDoctor] Successfully updated appointment:", updatedAppointment);
     return NextResponse.json(updatedAppointment, { status: 200 });
