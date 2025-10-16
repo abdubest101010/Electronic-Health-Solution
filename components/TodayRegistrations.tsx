@@ -17,12 +17,7 @@ import {
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import PatientSearchFilter from './PatientSearchFilter';
 import PatientTable from './PatientTable';
-
-interface PatientData {
-  id: string;
-  name: string;
-  createdAt: string | Date;
-}
+import { PatientData } from '@/types/patient'; // 👈 shared type
 
 export default function AllPatients() {
   const [patients, setPatients] = useState<PatientData[]>([]);
@@ -39,8 +34,12 @@ export default function AllPatients() {
         const res = await fetch('/api/patients');
         if (!res.ok) throw new Error('Failed to load data');
         const data = await res.json();
-        console.log('Fetched all patients:', data);
-        setPatients(data);
+        // Ensure appointments always exists as an array
+        const normalized = data.map((p: any) => ({
+          ...p,
+          appointments: Array.isArray(p.appointments) ? p.appointments : [],
+        }));
+        setPatients(normalized);
       } catch (err) {
         setError('Failed to load patients. Please try again.');
         console.error('Fetch error:', err);

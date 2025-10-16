@@ -17,19 +17,7 @@ import {
 } from '@mui/material';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { useState } from 'react';
-
-interface Appointment {
-  id: number;
-  dateTime: string | null;
-  status: string;
-}
-
-interface PatientData {
-  id: string;
-  name: string;
-  createdAt: string | Date;
-  appointments: Appointment[];
-}
+import { PatientData } from '@/types/patient'; // 👈 shared type
 
 interface PatientTableProps {
   patients: PatientData[];
@@ -140,7 +128,7 @@ export default function PatientTable({ patients }: PatientTableProps) {
                     : 'No Appointment'}
                 </TableCell>
                 <TableCell sx={{ color: '#1a237e' }}>
-                  {patient.appointments?.length > 0 ? (
+                  {patient.appointments.length > 0 ? (
                     <Typography
                       variant="body2"
                       sx={{
