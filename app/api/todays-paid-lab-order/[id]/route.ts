@@ -2,8 +2,13 @@ import { NextResponse, NextRequest } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 
-export async function GET(req: NextRequest, { params }: { params: { patientId: string } }) {
-  console.log('✅ [PaidLabOrdersByPatient] Request received for patient:', params.patientId);
+export async function GET(
+  req: NextRequest, 
+  { params }: { params: Promise<{ patientId: string }> } // 🔥 LINE 6: FIXED
+) {
+  // 🔥 LINE 10: AWAIT params FIRST
+  const { patientId } = await params;
+  console.log('✅ [PaidLabOrdersByPatient] Request received for patient:', patientId);
 
   const session = await auth();
   if (!session || session.user.role !== 'LABORATORIST') {
@@ -12,14 +17,13 @@ export async function GET(req: NextRequest, { params }: { params: { patientId: s
   }
   console.log('✅ [PaidLabOrdersByPatient] User authenticated:', session.user.name, session.user.id);
 
-  const patientId = params.patientId;
   if (!patientId || typeof patientId !== 'string') {
-    console.warn('❌ [PaidLabOrdersByPatient] Invalid patientId:', params.patientId);
+    console.warn('❌ [PaidLabOrdersByPatient] Invalid patientId:', patientId);
     return NextResponse.json({ error: 'Valid patientId (string) is required' }, { status: 400 });
   }
 
   try {
-    console.log(`🔍 [PaidLabOrdersByPatient] Fetching paid lab orders for patient ${patientId}...`);
+    console.log(`🔍 [PaidLabOrdersByPatient] Fetching TODAY'S paid lab orders for patient ${patientId}...`);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -65,7 +69,7 @@ export async function GET(req: NextRequest, { params }: { params: { patientId: s
       })),
     };
 
-    console.log('✅ [PaidLabOrdersByPatient] Formatted response:', result);
+    console.log('✅ [PaidLabOrdersByPatient] Formatted TODAY response:', result);
     return NextResponse.json(result);
   } catch (error: any) {
     console.error('💥 [PaidLabOrdersByPatient] Unexpected error:', {

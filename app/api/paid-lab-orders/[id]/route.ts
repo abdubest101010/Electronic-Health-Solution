@@ -3,8 +3,13 @@ import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 import { VisitStatus } from '@prisma/client';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  console.log('✅ [LabOrdersByPatient] Request received for patient:', params.id);
+export async function GET(
+  req: NextRequest, 
+  { params }: { params: Promise<{ id: string }> } // 🔥 LINE 8: FIXED
+) {
+  // 🔥 LINE 12: AWAIT params FIRST
+  const { id: patientId } = await params;
+  console.log('✅ [LabOrdersByPatient] Request received for patient:', patientId);
 
   const session = await auth();
   if (!session || session.user.role !== 'LABORATORIST') {
@@ -13,7 +18,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
   console.log('✅ [LabOrdersByPatient] User authenticated:', session.user.name, session.user.id);
 
-  const patientId = params.id;
   if (!patientId || typeof patientId !== 'string') {
     console.warn('❌ [LabOrdersByPatient] Invalid patientId:', patientId);
     return NextResponse.json({ error: 'Valid patientId (string) is required' }, { status: 400 });
