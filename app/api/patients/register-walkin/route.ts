@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Patient name is required' }, { status: 400 });
     }
 
-    const existingPatient = await prisma.patient.findUnique({
+    const existingPatient = await prisma.patient.findFirst({
       where: { name: patient.name },
     });
 
